@@ -32,6 +32,8 @@ import {
   LockOutlined,
   TagOutlined,
   DeleteOutlined,
+  CloudOutlined,
+  LinkOutlined,
 } from '@ant-design/icons'
 import { useParams, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -331,8 +333,13 @@ function ArtifactDetailPage() {
       key: 'name',
       render: (text, record) => (
         <Space>
-          <FileOutlined />
+          {record.isReference ? <CloudOutlined style={{ color: '#1890ff' }} /> : <FileOutlined />}
           {text}
+          {record.isReference && (
+            <Tag icon={<LinkOutlined />} color="blue">
+              External
+            </Tag>
+          )}
         </Space>
       ),
     },
@@ -341,6 +348,19 @@ function ArtifactDetailPage() {
       dataIndex: 'path',
       key: 'path',
       ellipsis: true,
+      render: (text, record) => (
+        record.isReference && record.referenceUri ? (
+          <Typography.Text
+            copyable={{ text: record.referenceUri }}
+            ellipsis={{ tooltip: record.referenceUri }}
+            style={{ color: '#1890ff' }}
+          >
+            {record.referenceUri}
+          </Typography.Text>
+        ) : (
+          text
+        )
+      ),
     },
     {
       title: 'Size',
@@ -362,14 +382,29 @@ function ArtifactDetailPage() {
       width: 150,
       render: (_, record) => (
         <Space>
-          <Button
-            type="link"
-            size="small"
-            icon={<DownloadOutlined />}
-            onClick={() => handleDownloadFile(record.id, record.name)}
-          >
-            Download
-          </Button>
+          {record.isReference ? (
+            <Button
+              type="link"
+              size="small"
+              icon={<LinkOutlined />}
+              onClick={() => {
+                if (record.referenceUri) {
+                  window.open(record.referenceUri, '_blank', 'noopener,noreferrer')
+                }
+              }}
+            >
+              Open Link
+            </Button>
+          ) : (
+            <Button
+              type="link"
+              size="small"
+              icon={<DownloadOutlined />}
+              onClick={() => handleDownloadFile(record.id, record.name)}
+            >
+              Download
+            </Button>
+          )}
           {selectedVersion && !selectedVersion.isFinalized && (
             <Popconfirm
               title="Delete file"

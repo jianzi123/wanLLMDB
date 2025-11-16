@@ -124,7 +124,9 @@ class ArtifactFileBase(BaseModel):
 class ArtifactFileCreate(ArtifactFileBase):
     """Schema for creating an artifact file."""
     version_id: UUID
-    storage_key: str
+    is_reference: bool = False
+    storage_key: Optional[str] = None  # Required for uploaded files
+    reference_uri: Optional[str] = None  # Required for reference files
     md5_hash: Optional[str] = None
     sha256_hash: Optional[str] = None
 
@@ -133,7 +135,9 @@ class ArtifactFileInDBBase(ArtifactFileBase):
     """Base schema for artifact file in database."""
     id: UUID
     version_id: UUID
-    storage_key: str
+    is_reference: bool
+    storage_key: Optional[str]
+    reference_uri: Optional[str]
     md5_hash: Optional[str]
     sha256_hash: Optional[str]
     created_at: datetime
@@ -176,6 +180,17 @@ class FileDownloadResponse(BaseModel):
     size: int
     mime_type: Optional[str]
     expires_in: int  # Seconds
+
+
+class FileReferenceRequest(BaseModel):
+    """Schema for adding external file reference."""
+    path: str = Field(..., min_length=1, max_length=500)
+    name: str = Field(..., min_length=1, max_length=255)
+    reference_uri: str = Field(..., pattern=r'^(s3://|gs://|https?://|file://).*')
+    size: int = Field(..., ge=0)
+    mime_type: Optional[str] = None
+    md5_hash: Optional[str] = None
+    sha256_hash: Optional[str] = None
 
 
 # List schemas

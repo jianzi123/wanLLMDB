@@ -28,6 +28,7 @@ from app.schemas.artifact import (
     FileUploadRequest,
     FileUploadResponse,
     FileDownloadResponse,
+    FileReferenceRequest,
     ArtifactFileCreate,
     ArtifactAlias,
     ArtifactAliasCreate,
@@ -331,13 +332,64 @@ def add_file_to_version(
     return file
 
 
+@router.post("/versions/{version_id}/files/reference", response_model=ArtifactFile)
+def add_file_reference(
+    version_id: UUID,
+    reference_in: FileReferenceRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add an external file reference to an artifact version.
+
+    This allows referencing files stored in S3, GCS, or other external storage
+    without uploading them to MinIO.
+    """
+    repo = ArtifactRepository(db)
+
+    # Verify version exists and is not finalized
+    version = repo.get_version(version_id)
+    if not version:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artifact version not found",
+        )
+
+    if version.is_finalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot add files to finalized version",
+        )
+
+    # Create file record with external reference
+    file_create = ArtifactFileCreate(
+        version_id=version_id,
+        path=reference_in.path,
+        name=reference_in.name,
+        size=reference_in.size,
+        mime_type=reference_in.mime_type,
+        is_reference=True,
+        reference_uri=reference_in.reference_uri,
+        storage_key=None,  # No storage key for external references
+        md5_hash=reference_in.md5_hash,
+        sha256_hash=reference_in.sha256_hash,
+    )
+
+    # Add file reference
+    file = repo.add_file(file_create)
+    return file
+
+
 @router.get("/files/{file_id}/download-url", response_model=FileDownloadResponse)
 def get_file_download_url(
     file_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get a presigned URL for downloading a file."""
+    """Get a download URL for a file.
+
+    For uploaded files, returns a presigned MinIO URL.
+    For external references, returns the reference URI directly.
+    """
     repo = ArtifactRepository(db)
 
     file = repo.get_file(file_id)
@@ -347,7 +399,28 @@ def get_file_download_url(
             detail="File not found",
         )
 
-    # Generate presigned download URL
+    # For external references, return the reference URI directly
+    if file.is_reference:
+        if not file.reference_uri:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Reference URI not found for external file",
+            )
+        return {
+            "download_url": file.reference_uri,
+            "file_name": file.name,
+            "size": file.size,
+            "mime_type": file.mime_type,
+            "expires_in": 0,  # External references don't expire
+        }
+
+    # For uploaded files, generate presigned download URL
+    if not file.storage_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Storage key not found for uploaded file",
+        )
+
     download_url = storage_service.get_download_url(file.storage_key)
 
     return {

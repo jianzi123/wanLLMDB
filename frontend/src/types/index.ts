@@ -180,7 +180,9 @@ export interface ArtifactFile {
   name: string
   size: number
   mimeType?: string
-  storageKey: string
+  isReference: boolean
+  storageKey?: string // Optional - only for uploaded files
+  referenceUri?: string // Optional - only for external references
   md5Hash?: string
   sha256Hash?: string
   createdAt: string

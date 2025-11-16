@@ -11,22 +11,40 @@ import time
 class ArtifactFile:
     """Represents a file in an artifact."""
 
-    def __init__(self, local_path: str, artifact_path: str, size: int):
+    def __init__(
+        self,
+        local_path: str,
+        artifact_path: str,
+        size: int,
+        is_reference: bool = False,
+        reference_uri: Optional[str] = None
+    ):
         """Initialize artifact file.
 
         Args:
-            local_path: Local file system path
+            local_path: Local file system path (or URI for references)
             artifact_path: Path within the artifact
             size: File size in bytes
+            is_reference: True if this is an external reference
+            reference_uri: External URI (s3://, gs://, etc.) for references
         """
         self.local_path = local_path
         self.artifact_path = artifact_path
         self.size = size
+        self.is_reference = is_reference
+        self.reference_uri = reference_uri
         self.md5_hash: Optional[str] = None
         self.sha256_hash: Optional[str] = None
 
     def compute_hashes(self) -> None:
-        """Compute MD5 and SHA256 hashes of the file."""
+        """Compute MD5 and SHA256 hashes of the file.
+
+        Only works for local files, not external references.
+        """
+        if self.is_reference:
+            # Cannot compute hashes for external references
+            return
+
         md5 = hashlib.md5()
         sha256 = hashlib.sha256()
 
@@ -172,27 +190,68 @@ class Artifact:
         uri: str,
         name: Optional[str] = None,
         checksum: bool = True,
-        max_objects: Optional[int] = None
-    ) -> None:
+        max_objects: Optional[int] = None,
+        size: Optional[int] = None,
+        md5_hash: Optional[str] = None,
+        sha256_hash: Optional[str] = None
+    ) -> ArtifactFile:
         """Add a reference to an external file or directory.
 
         References allow you to track files without copying them into the artifact.
         Useful for large datasets stored in S3, GCS, or other cloud storage.
 
         Args:
-            uri: URI to reference (e.g., 's3://bucket/path', 'gs://bucket/path')
-            name: Name for the reference within the artifact
-            checksum: If True, compute checksums for validation
-            max_objects: Maximum number of objects to reference (for directories)
+            uri: URI to reference (e.g., 's3://bucket/path', 'gs://bucket/path', 'https://...')
+            name: Name for the reference within the artifact. If None, uses basename from URI
+            checksum: If True, compute checksums for validation (not yet supported)
+            max_objects: Maximum number of objects to reference (for directories, not yet supported)
+            size: File size in bytes (optional, but recommended)
+            md5_hash: MD5 hash of the file (optional)
+            sha256_hash: SHA256 hash of the file (optional)
 
-        Note:
-            This is a placeholder for future cloud storage integration.
+        Returns:
+            ArtifactFile object representing the reference
+
+        Example:
+            >>> artifact = wandb.Artifact('my-dataset', type='dataset')
+            >>> artifact.add_reference(
+            ...     's3://my-bucket/data/train.csv',
+            ...     name='train.csv',
+            ...     size=1024000
+            ... )
+            >>> run.log_artifact(artifact)
         """
-        # TODO: Implement cloud storage references
-        raise NotImplementedError(
-            "Cloud storage references not yet implemented. "
-            "Please use add_file() or add_dir() for local files."
+        # Validate URI format
+        valid_schemes = ['s3://', 'gs://', 'http://', 'https://', 'file://']
+        if not any(uri.startswith(scheme) for scheme in valid_schemes):
+            raise ValueError(
+                f"Invalid URI scheme. Must start with one of: {', '.join(valid_schemes)}"
+            )
+
+        # Determine artifact path
+        if name is None:
+            # Extract basename from URI
+            name = uri.split('/')[-1]
+            if not name:
+                raise ValueError("Cannot infer name from URI. Please provide 'name' parameter.")
+
+        # Create artifact file with reference
+        artifact_file = ArtifactFile(
+            local_path=uri,  # Store URI in local_path for references
+            artifact_path=name,
+            size=size or 0,  # Size is optional but recommended
+            is_reference=True,
+            reference_uri=uri
         )
+
+        # Set hashes if provided
+        if md5_hash:
+            artifact_file.md5_hash = md5_hash
+        if sha256_hash:
+            artifact_file.sha256_hash = sha256_hash
+
+        self._files.append(artifact_file)
+        return artifact_file
 
     def download(self, root: Optional[str] = None) -> str:
         """Download the artifact to local storage.

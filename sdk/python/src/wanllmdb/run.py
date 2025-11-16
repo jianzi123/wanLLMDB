@@ -342,47 +342,72 @@ class Run:
 
             print(f"  Created version: {artifact._version}")
 
-            # 3. Upload files
+            # 3. Upload files and add references
             if artifact._files:
-                print(f"  Uploading {len(artifact._files)} file(s)...")
+                upload_count = sum(1 for f in artifact._files if not f.is_reference)
+                reference_count = sum(1 for f in artifact._files if f.is_reference)
+
+                if upload_count > 0:
+                    print(f"  Uploading {upload_count} file(s)...")
+                if reference_count > 0:
+                    print(f"  Adding {reference_count} external reference(s)...")
+
                 for artifact_file in artifact._files:
-                    # Compute hashes
-                    artifact_file.compute_hashes()
+                    if artifact_file.is_reference:
+                        # Handle external reference
+                        reference_data = {
+                            'path': artifact_file.artifact_path,
+                            'name': os.path.basename(artifact_file.artifact_path),
+                            'reference_uri': artifact_file.reference_uri,
+                            'size': artifact_file.size,
+                            'md5_hash': artifact_file.md5_hash,
+                            'sha256_hash': artifact_file.sha256_hash,
+                        }
 
-                    # Get upload URL
-                    upload_request = {
-                        'path': artifact_file.artifact_path,
-                        'name': os.path.basename(artifact_file.artifact_path),
-                        'size': artifact_file.size,
-                        'md5_hash': artifact_file.md5_hash,
-                        'sha256_hash': artifact_file.sha256_hash,
-                    }
+                        self.api_client.post(
+                            f'/artifacts/versions/{version_id}/files/reference',
+                            data=reference_data
+                        )
+                        print(f"    ✓ {artifact_file.artifact_path} → {artifact_file.reference_uri}")
+                    else:
+                        # Handle regular file upload
+                        # Compute hashes
+                        artifact_file.compute_hashes()
 
-                    upload_response = self.api_client.post(
-                        f'/artifacts/versions/{version_id}/files/upload-url',
-                        data=upload_request
-                    )
+                        # Get upload URL
+                        upload_request = {
+                            'path': artifact_file.artifact_path,
+                            'name': os.path.basename(artifact_file.artifact_path),
+                            'size': artifact_file.size,
+                            'md5_hash': artifact_file.md5_hash,
+                            'sha256_hash': artifact_file.sha256_hash,
+                        }
 
-                    # Upload to MinIO
-                    upload_url = upload_response['upload_url']
-                    self.api_client.upload_file(artifact_file.local_path, upload_url)
+                        upload_response = self.api_client.post(
+                            f'/artifacts/versions/{version_id}/files/upload-url',
+                            data=upload_request
+                        )
 
-                    # Register file
-                    file_data = {
-                        'path': artifact_file.artifact_path,
-                        'name': os.path.basename(artifact_file.artifact_path),
-                        'size': artifact_file.size,
-                        'storage_key': upload_response['storage_key'],
-                        'md5_hash': artifact_file.md5_hash,
-                        'sha256_hash': artifact_file.sha256_hash,
-                    }
+                        # Upload to MinIO
+                        upload_url = upload_response['upload_url']
+                        self.api_client.upload_file(artifact_file.local_path, upload_url)
 
-                    self.api_client.post(
-                        f'/artifacts/versions/{version_id}/files',
-                        data=file_data
-                    )
+                        # Register file
+                        file_data = {
+                            'path': artifact_file.artifact_path,
+                            'name': os.path.basename(artifact_file.artifact_path),
+                            'size': artifact_file.size,
+                            'storage_key': upload_response['storage_key'],
+                            'md5_hash': artifact_file.md5_hash,
+                            'sha256_hash': artifact_file.sha256_hash,
+                        }
 
-                    print(f"    ✓ {artifact_file.artifact_path}")
+                        self.api_client.post(
+                            f'/artifacts/versions/{version_id}/files',
+                            data=file_data
+                        )
+
+                        print(f"    ✓ {artifact_file.artifact_path}")
 
             # 4. Finalize version
             self.api_client.post(f'/artifacts/versions/{version_id}/finalize')

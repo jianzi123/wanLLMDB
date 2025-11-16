@@ -111,8 +111,10 @@ class ArtifactFile(Base):
     size = Column(BigInteger, nullable=False)  # Size in bytes
     mime_type = Column(String(100), nullable=True)
 
-    # Storage
-    storage_key = Column(String(500), nullable=False)  # MinIO object key
+    # Storage - either local (MinIO) or external reference (S3/GCS)
+    is_reference = Column(Boolean, nullable=False, default=False, index=True)
+    storage_key = Column(String(500), nullable=True)  # MinIO object key (for uploaded files)
+    reference_uri = Column(String(1000), nullable=True)  # External URI (s3://, gs://, etc.)
 
     # Integrity
     md5_hash = Column(String(32), nullable=True)
