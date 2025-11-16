@@ -2,12 +2,14 @@ import { configureStore } from '@reduxjs/toolkit'
 import authReducer from '@features/auth/authSlice'
 import projectsReducer from '@features/projects/projectsSlice'
 import runsReducer from '@features/runs/runsSlice'
+import { api } from '@/services/api'
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     projects: projectsReducer,
     runs: runsReducer,
+    [api.reducerPath]: api.reducer,
   },
   middleware: getDefaultMiddleware =>
     getDefaultMiddleware({
@@ -19,7 +21,7 @@ export const store = configureStore({
         // Ignore these paths in the state
         ignoredPaths: ['items.dates'],
       },
-    }),
+    }).concat(api.middleware),
 })
 
 export type RootState = ReturnType<typeof store.getState>
