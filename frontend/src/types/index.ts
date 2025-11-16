@@ -136,3 +136,108 @@ export interface ProjectFormData {
   description?: string
   visibility: 'public' | 'private'
 }
+
+// Artifact types
+export type ArtifactType = 'model' | 'dataset' | 'file' | 'code'
+
+export interface Artifact {
+  id: string
+  name: string
+  type: ArtifactType
+  description?: string
+  projectId: string
+  createdBy: string
+  metadata?: Record<string, unknown>
+  tags?: string[]
+  versionCount: number
+  latestVersion?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ArtifactVersion {
+  id: string
+  artifactId: string
+  version: string
+  description?: string
+  notes?: string
+  fileCount: number
+  totalSize: number
+  storagePath: string
+  metadata?: Record<string, unknown>
+  digest?: string
+  runId?: string
+  isFinalized: boolean
+  createdBy: string
+  createdAt: string
+  finalizedAt?: string
+}
+
+export interface ArtifactFile {
+  id: string
+  versionId: string
+  path: string
+  name: string
+  size: number
+  mimeType?: string
+  storageKey: string
+  md5Hash?: string
+  sha256Hash?: string
+  createdAt: string
+}
+
+export interface ArtifactVersionWithFiles extends ArtifactVersion {
+  files: ArtifactFile[]
+}
+
+export interface FileUploadRequest {
+  path: string
+}
+
+export interface FileUploadResponse {
+  uploadUrl: string
+  storageKey: string
+  expiresIn: number
+}
+
+export interface FileDownloadResponse {
+  downloadUrl: string
+  fileName: string
+  size: number
+  mimeType?: string
+  expiresIn: number
+}
+
+export interface ArtifactList {
+  items: Artifact[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface ArtifactVersionList {
+  items: ArtifactVersion[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface ArtifactFormData {
+  name: string
+  type: ArtifactType
+  description?: string
+  projectId: string
+  tags?: string[]
+  metadata?: Record<string, unknown>
+}
+
+export interface ArtifactVersionFormData {
+  artifactId: string
+  version?: string
+  description?: string
+  notes?: string
+  runId?: string
+  metadata?: Record<string, unknown>
+}

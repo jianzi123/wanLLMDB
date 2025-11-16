@@ -10,6 +10,8 @@ import RunsPage from './pages/RunsPage'
 import RunDetailPage from './pages/RunDetailPage'
 import WorkspacePage from './pages/WorkspacePage'
 import RunComparePage from './pages/RunComparePage'
+import ArtifactsPage from './pages/ArtifactsPage'
+import ArtifactDetailPage from './pages/ArtifactDetailPage'
 import './App.css'
 
 function App() {
@@ -31,6 +33,8 @@ function App() {
           <Route path="/runs" element={<RunsPage />} />
           <Route path="/runs/:id" element={<RunDetailPage />} />
           <Route path="/runs/compare" element={<RunComparePage />} />
+          <Route path="/artifacts" element={<ArtifactsPage />} />
+          <Route path="/artifacts/:id" element={<ArtifactDetailPage />} />
           <Route path="/workspace/:id" element={<WorkspacePage />} />
         </Route>
 
