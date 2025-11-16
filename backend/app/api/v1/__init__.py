@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, projects, runs, artifacts, sweeps, run_files, run_logs
+from app.api.v1 import auth, projects, runs, artifacts, sweeps, run_files, run_logs, model_registry
 
 api_router = APIRouter()
 
@@ -10,3 +10,4 @@ api_router.include_router(artifacts.router, prefix="/artifacts", tags=["artifact
 api_router.include_router(sweeps.router, prefix="/sweeps", tags=["sweeps"])
 api_router.include_router(run_files.router, prefix="/runs", tags=["run-files"])
 api_router.include_router(run_logs.router, prefix="/runs", tags=["run-logs"])
+api_router.include_router(model_registry.router, prefix="/registry/models", tags=["model-registry"])
