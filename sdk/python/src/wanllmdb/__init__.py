@@ -9,6 +9,7 @@ __version__ = "0.1.0"
 from wanllmdb.sdk import init, finish, log
 from wanllmdb.run import Run
 from wanllmdb.config import Config
+from wanllmdb.sweep import sweep, agent, SweepController
 from wanllmdb import errors
 
 # Global state
@@ -55,6 +56,9 @@ __all__ = [
     "log",
     "Run",
     "Config",
+    "sweep",
+    "agent",
+    "SweepController",
     "errors",
     "run",
     "config",

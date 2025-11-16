@@ -29,11 +29,13 @@ import type { SweepRunDetail, SweepMethod, SweepState } from '@/types'
 import {
   useGetSweepQuery,
   useListSweepRunsQuery,
+  useGetParallelCoordinatesDataQuery,
   useStartSweepMutation,
   usePauseSweepMutation,
   useResumeSweepMutation,
   useFinishSweepMutation,
 } from '@/services/sweepsApi'
+import ParallelCoordinatesChart from '@/components/charts/ParallelCoordinatesChart'
 
 const { Title, Text } = Typography
 
@@ -59,6 +61,7 @@ function SweepDetailPage() {
 
   const { data: sweep, isLoading } = useGetSweepQuery(id!)
   const { data: sweepRunsData } = useListSweepRunsQuery({ sweepId: id! }, { skip: !id })
+  const { data: parallelData } = useGetParallelCoordinatesDataQuery(id!, { skip: !id })
 
   const [startSweep] = useStartSweepMutation()
   const [pauseSweep] = usePauseSweepMutation()
@@ -396,6 +399,16 @@ function SweepDetailPage() {
             </Card>
           </Tabs.TabPane>
         )}
+
+        <Tabs.TabPane tab="Visualization" key="visualization">
+          {parallelData && parallelData.data.length > 0 ? (
+            <ParallelCoordinatesChart data={parallelData} />
+          ) : (
+            <Card>
+              <Empty description="No data available for visualization. Complete some runs first." />
+            </Card>
+          )}
+        </Tabs.TabPane>
       </Tabs>
     </div>
   )
