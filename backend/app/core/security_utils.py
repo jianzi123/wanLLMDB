@@ -73,8 +73,12 @@ def validate_reference_uri(uri: str) -> bool:
                     raise ValueError(
                         f"Cannot reference private IP address: {parsed.hostname}"
                     )
-        except (ipaddress.AddressValueError, ipaddress.NetmaskValueError):
-            # Not an IP address, hostname is OK
+        except ValueError as e:
+            # Not an IP address (domain name), continue with domain validation
+            # But re-raise if it's our own validation error about private IPs
+            if "Cannot reference private IP" in str(e):
+                raise
+            # Otherwise, hostname is a domain name which is OK
             pass
 
         # Check for localhost variations
@@ -109,18 +113,36 @@ def sanitize_sql_search_input(search: str) -> str:
     Returns:
         Sanitized search string
     """
+    import re
+
     if not search:
         return ""
 
-    # Remove SQL comment indicators
-    dangerous_patterns = ['--', '/*', '*/', ';', 'DROP', 'DELETE', 'UPDATE', 'INSERT']
-
     sanitized = search
-    for pattern in dangerous_patterns:
-        sanitized = sanitized.replace(pattern, '')
+
+    # Remove null bytes
+    sanitized = sanitized.replace('\x00', '')
+
+    # Remove SQL comment indicators (exact match, case-sensitive for special chars)
+    sanitized = sanitized.replace('--', '')
+    sanitized = sanitized.replace('/*', '')
+    sanitized = sanitized.replace('*/', '')
+    sanitized = sanitized.replace(';', '')
+
+    # Remove dangerous SQL keywords (case-insensitive)
+    dangerous_keywords = [
+        'DROP', 'DELETE', 'UPDATE', 'INSERT', 'UNION', 'EXEC',
+        'EXECUTE', 'SELECT', 'ALTER', 'CREATE', 'TRUNCATE'
+    ]
+
+    for keyword in dangerous_keywords:
+        # Use regex for case-insensitive replacement
+        # Use word boundaries to only match whole words
+        pattern = re.compile(re.escape(keyword), re.IGNORECASE)
+        sanitized = pattern.sub('', sanitized)
 
     # Limit length to prevent DoS
-    max_length = 500
+    max_length = 200
     if len(sanitized) > max_length:
         sanitized = sanitized[:max_length]
 
