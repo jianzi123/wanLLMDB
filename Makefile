@@ -24,6 +24,9 @@ logs-backend: ## View backend logs
 logs-frontend: ## View frontend logs
 	docker-compose logs -f frontend
 
+logs-metric: ## View metric service logs
+	docker-compose logs -f metric-service
+
 clean: ## Stop and remove all containers, volumes, and images
 	docker-compose down -v
 	docker system prune -f
@@ -36,6 +39,9 @@ restart-backend: ## Restart backend service
 
 restart-frontend: ## Restart frontend service
 	docker-compose restart frontend
+
+restart-metric: ## Restart metric service
+	docker-compose restart metric-service
 
 # Database operations
 migrate-up: ## Run database migrations
@@ -56,6 +62,9 @@ backend-shell: ## Open shell in backend container
 
 frontend-shell: ## Open shell in frontend container
 	docker-compose exec frontend /bin/sh
+
+metric-shell: ## Open shell in metric service container
+	docker-compose exec metric-service /bin/sh
 
 # Testing
 test-backend: ## Run backend tests
@@ -89,6 +98,7 @@ status: ## Show status of all services
 setup: build up migrate-up ## Initial setup: build, start, and migrate
 	@echo "Setup complete! Services are running."
 	@echo "Frontend: http://localhost:3000"
-	@echo "Backend: http://localhost:8000"
+	@echo "Backend API: http://localhost:8000"
 	@echo "API Docs: http://localhost:8000/docs"
+	@echo "Metric Service: http://localhost:8001"
 	@echo "MinIO Console: http://localhost:9001"

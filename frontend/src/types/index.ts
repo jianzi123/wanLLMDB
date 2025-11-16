@@ -64,6 +64,26 @@ export interface MetricData {
   [metricName: string]: MetricValue[]
 }
 
+export interface Metric {
+  time: string
+  run_id: string
+  metric_name: string
+  step?: number
+  value: number
+  metadata?: Record<string, any>
+}
+
+export interface MetricStats {
+  metric_name: string
+  count: number
+  min_value: number
+  max_value: number
+  avg_value: number
+  std_dev?: number
+  first_time: string
+  last_time: string
+}
+
 // API response types
 export interface ApiResponse<T> {
   data: T

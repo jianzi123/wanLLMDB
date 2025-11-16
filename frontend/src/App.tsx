@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage'
 import ProjectsPage from './pages/ProjectsPage'
 import RunsPage from './pages/RunsPage'
 import RunDetailPage from './pages/RunDetailPage'
+import WorkspacePage from './pages/WorkspacePage'
 import './App.css'
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
           <Route path="/projects/:id" element={<div>Project Detail (TODO)</div>} />
           <Route path="/runs" element={<RunsPage />} />
           <Route path="/runs/:id" element={<RunDetailPage />} />
+          <Route path="/workspace/:id" element={<WorkspacePage />} />
         </Route>
 
         {/* Catch all */}

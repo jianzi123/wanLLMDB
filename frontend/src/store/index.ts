@@ -3,6 +3,7 @@ import authReducer from '@features/auth/authSlice'
 import projectsReducer from '@features/projects/projectsSlice'
 import runsReducer from '@features/runs/runsSlice'
 import { api } from '@/services/api'
+import { metricApi } from '@/services/metricsApi'
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     projects: projectsReducer,
     runs: runsReducer,
     [api.reducerPath]: api.reducer,
+    [metricApi.reducerPath]: metricApi.reducer,
   },
   middleware: getDefaultMiddleware =>
     getDefaultMiddleware({
@@ -21,7 +23,7 @@ export const store = configureStore({
         // Ignore these paths in the state
         ignoredPaths: ['items.dates'],
       },
-    }).concat(api.middleware),
+    }).concat(api.middleware, metricApi.middleware),
 })
 
 export type RootState = ReturnType<typeof store.getState>
