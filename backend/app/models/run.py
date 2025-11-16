@@ -22,6 +22,9 @@ class Run(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     state = Column(Enum(RunStateEnum), default=RunStateEnum.RUNNING, nullable=False, index=True)
 
+    # Hyperparameter sweep association (optional)
+    sweep_id = Column(UUID(as_uuid=True), ForeignKey("sweeps.id"), nullable=True, index=True)
+
     # Git information
     git_commit = Column(String(40), nullable=True)
     git_remote = Column(Text, nullable=True)

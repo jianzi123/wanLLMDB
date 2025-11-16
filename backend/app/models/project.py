@@ -28,5 +28,6 @@ class Project(Base):
 
     # Relationships
     artifacts = relationship("Artifact", back_populates="project", cascade="all, delete-orphan")
+    sweeps = relationship("Sweep", back_populates="project", cascade="all, delete-orphan")
 
     # Note: organization_id will be added later when we implement organizations
