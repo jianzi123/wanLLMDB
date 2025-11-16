@@ -1,0 +1,439 @@
+# GitHub Actions CI/CD Workflow for wanLLMDB
+# Automated testing, security validation, and Docker image building
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, 'claude/**' ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:  # Manual trigger
+
+env:
+  PYTHON_VERSION: '3.11'
+  POETRY_VERSION: '1.5.1'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ============================================================================
+  # JOB 1: Lint and Code Quality
+  # ============================================================================
+  lint:
+    name: Lint and Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('backend/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          poetry install --no-root --no-interaction
+
+      - name: Run ruff linter (if configured)
+        working-directory: ./backend
+        run: |
+          if poetry run which ruff > /dev/null 2>&1; then
+            poetry run ruff check app/
+          else
+            echo "Ruff not installed, skipping..."
+          fi
+        continue-on-error: true
+
+      - name: Run black formatter check (if configured)
+        working-directory: ./backend
+        run: |
+          if poetry run which black > /dev/null 2>&1; then
+            poetry run black --check app/
+          else
+            echo "Black not installed, skipping..."
+          fi
+        continue-on-error: true
+
+  # ============================================================================
+  # JOB 2: Security Tests
+  # ============================================================================
+  security-tests:
+    name: Security Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: wanllm
+          POSTGRES_PASSWORD: test_password_for_ci_min_12_chars
+          POSTGRES_DB: wanllmdb_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('backend/poetry.lock') }}
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: poetry install --no-root --no-interaction
+
+      - name: Run security tests
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://wanllm:test_password_for_ci_min_12_chars@localhost:5432/wanllmdb_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test_secret_key_for_ci_min_32_characters_long_string_here
+          MINIO_ACCESS_KEY: test_minio_access_key_12_chars
+          MINIO_SECRET_KEY: test_minio_secret_key_12_chars
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_SECURE: "false"
+          MINIO_BUCKET_NAME: test-bucket
+        run: |
+          poetry run pytest tests/security/ -v --tb=short
+
+      - name: Run security audit
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://wanllm:test_password_for_ci_min_12_chars@localhost:5432/wanllmdb_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test_secret_key_for_ci_min_32_characters_long_string_here
+          MINIO_ACCESS_KEY: test_minio_access_key_12_chars
+          MINIO_SECRET_KEY: test_minio_secret_key_12_chars
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_SECURE: "false"
+          MINIO_BUCKET_NAME: test-bucket
+        run: |
+          poetry run pytest tests/security/test_security_audit.py -v -s
+
+      - name: Upload security test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-test-results
+          path: backend/pytest-results/
+
+  # ============================================================================
+  # JOB 3: Performance Tests
+  # ============================================================================
+  performance-tests:
+    name: Performance Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: wanllm
+          POSTGRES_PASSWORD: test_password_for_ci_min_12_chars
+          POSTGRES_DB: wanllmdb_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('backend/poetry.lock') }}
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: poetry install --no-root --no-interaction
+
+      - name: Run performance tests
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://wanllm:test_password_for_ci_min_12_chars@localhost:5432/wanllmdb_test
+          SECRET_KEY: test_secret_key_for_ci_min_32_characters_long_string_here
+          MINIO_ACCESS_KEY: test_minio_access_key_12_chars
+          MINIO_SECRET_KEY: test_minio_secret_key_12_chars
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_SECURE: "false"
+          MINIO_BUCKET_NAME: test-bucket
+        run: |
+          poetry run pytest tests/performance/ -v --tb=short
+
+      - name: Upload performance test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-test-results
+          path: backend/pytest-results/
+
+  # ============================================================================
+  # JOB 4: Unit and Integration Tests
+  # ============================================================================
+  unit-tests:
+    name: Unit and Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: wanllm
+          POSTGRES_PASSWORD: test_password_for_ci_min_12_chars
+          POSTGRES_DB: wanllmdb_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: test_minio_access_key_12_chars
+          MINIO_ROOT_PASSWORD: test_minio_secret_key_12_chars
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        command: server /data
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('backend/poetry.lock') }}
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: poetry install --no-root --no-interaction
+
+      - name: Run database migrations
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://wanllm:test_password_for_ci_min_12_chars@localhost:5432/wanllmdb_test
+          SECRET_KEY: test_secret_key_for_ci_min_32_characters_long_string_here
+          MINIO_ACCESS_KEY: test_minio_access_key_12_chars
+          MINIO_SECRET_KEY: test_minio_secret_key_12_chars
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_SECURE: "false"
+          MINIO_BUCKET_NAME: test-bucket
+        run: |
+          poetry run alembic upgrade head
+
+      - name: Run all tests with coverage
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://wanllm:test_password_for_ci_min_12_chars@localhost:5432/wanllmdb_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test_secret_key_for_ci_min_32_characters_long_string_here
+          MINIO_ACCESS_KEY: test_minio_access_key_12_chars
+          MINIO_SECRET_KEY: test_minio_secret_key_12_chars
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_SECURE: "false"
+          MINIO_BUCKET_NAME: test-bucket
+        run: |
+          poetry run pytest tests/ -v --cov=app --cov-report=xml --cov-report=html --cov-report=term
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: |
+            backend/htmlcov/
+            backend/coverage.xml
+
+      - name: Comment coverage on PR (optional)
+        if: github.event_name == 'pull_request'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+        continue-on-error: true
+
+  # ============================================================================
+  # JOB 5: Build Docker Image
+  # ============================================================================
+  build-docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [security-tests, performance-tests, unit-tests]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+
+      - name: Image digest
+        run: echo ${{ steps.meta.outputs.digest }}
+
+  # ============================================================================
+  # JOB 6: Test Summary
+  # ============================================================================
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [security-tests, performance-tests, unit-tests]
+    if: always()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Test Summary
+        run: |
+          echo "======================================"
+          echo "wanLLMDB CI/CD Pipeline Summary"
+          echo "======================================"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Actor: ${{ github.actor }}"
+          echo ""
+          echo "Test Results:"
+          echo "  - Security Tests: ${{ needs.security-tests.result }}"
+          echo "  - Performance Tests: ${{ needs.performance-tests.result }}"
+          echo "  - Unit Tests: ${{ needs.unit-tests.result }}"
+          echo "======================================"
+
+      - name: Check if all tests passed
+        if: needs.security-tests.result != 'success' || needs.performance-tests.result != 'success' || needs.unit-tests.result != 'success'
+        run: |
+          echo "❌ Some tests failed!"
+          exit 1
+
+      - name: All tests passed
+        if: needs.security-tests.result == 'success' && needs.performance-tests.result == 'success' && needs.unit-tests.result == 'success'
+        run: |
+          echo "✅ All tests passed!"

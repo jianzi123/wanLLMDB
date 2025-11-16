@@ -1,0 +1,56 @@
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { Layout } from 'antd'
+import AppLayout from './components/layout/AppLayout'
+import AuthLayout from './components/layout/AuthLayout'
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
+import DashboardPage from './pages/DashboardPage'
+import ProjectsPage from './pages/ProjectsPage'
+import RunsPage from './pages/RunsPage'
+import RunDetailPage from './pages/RunDetailPage'
+import WorkspacePage from './pages/WorkspacePage'
+import RunComparePage from './pages/RunComparePage'
+import ArtifactsPage from './pages/ArtifactsPage'
+import ArtifactDetailPage from './pages/ArtifactDetailPage'
+import SweepsPage from './pages/SweepsPage'
+import SweepDetailPage from './pages/SweepDetailPage'
+import ModelRegistryPage from './pages/ModelRegistryPage'
+import ModelDetailPage from './pages/ModelDetailPage'
+import './App.css'
+
+function App() {
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      <Routes>
+        {/* Auth routes */}
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+        </Route>
+
+        {/* App routes */}
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:id" element={<div>Project Detail (TODO)</div>} />
+          <Route path="/runs" element={<RunsPage />} />
+          <Route path="/runs/:id" element={<RunDetailPage />} />
+          <Route path="/runs/compare" element={<RunComparePage />} />
+          <Route path="/artifacts" element={<ArtifactsPage />} />
+          <Route path="/artifacts/:id" element={<ArtifactDetailPage />} />
+          <Route path="/sweeps" element={<SweepsPage />} />
+          <Route path="/sweeps/:id" element={<SweepDetailPage />} />
+          <Route path="/workspace/:id" element={<WorkspacePage />} />
+          <Route path="/registry/models" element={<ModelRegistryPage />} />
+          <Route path="/registry/models/:id" element={<ModelDetailPage />} />
+        </Route>
+
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </Layout>
+  )
+}
+
+export default App

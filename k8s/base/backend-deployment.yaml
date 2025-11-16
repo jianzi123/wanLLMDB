@@ -1,0 +1,198 @@
+---
+# Backend API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: wanllmdb
+  labels:
+    app: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+  selector:
+    app: backend
+
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: wanllmdb
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      initContainers:
+        # Wait for PostgreSQL to be ready
+        - name: wait-for-postgres
+          image: busybox:1.35
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z postgres 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+              echo "PostgreSQL is ready"
+        # Wait for Redis to be ready
+        - name: wait-for-redis
+          image: busybox:1.35
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z redis 6379; do
+                echo "Waiting for Redis..."
+                sleep 2
+              done
+              echo "Redis is ready"
+        # Wait for MinIO to be ready
+        - name: wait-for-minio
+          image: busybox:1.35
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z minio 9000; do
+                echo "Waiting for MinIO..."
+                sleep 2
+              done
+              echo "MinIO is ready"
+        # Run database migrations
+        - name: run-migrations
+          image: wanllmdb/backend:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Running database migrations..."
+              poetry run alembic upgrade head
+              echo "Migrations completed"
+          envFrom:
+            - configMapRef:
+                name: wanllmdb-config
+            - secretRef:
+                name: wanllmdb-db-url
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: SECRET_KEY
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: REDIS_PASSWORD
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: MINIO_SECRET_KEY
+            - name: ADMIN_USERS
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: ADMIN_USERS
+      containers:
+        - name: backend
+          image: wanllmdb/backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: wanllmdb-config
+            - secretRef:
+                name: wanllmdb-db-url
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: SECRET_KEY
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: REDIS_PASSWORD
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: MINIO_SECRET_KEY
+            - name: ADMIN_USERS
+              valueFrom:
+                secretKeyRef:
+                  name: wanllmdb-secrets
+                  key: ADMIN_USERS
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - sleep 10
