@@ -2,6 +2,7 @@
 Run class for managing experiment runs.
 """
 
+import os
 import time
 import uuid
 from datetime import datetime
@@ -13,6 +14,7 @@ from wanllmdb.metrics_buffer import MetricsBuffer
 from wanllmdb.system_monitor import SystemMonitor
 from wanllmdb.git_info import GitInfo
 from wanllmdb.errors import WanLLMDBError
+from wanllmdb.artifact import Artifact
 
 
 class ConfigDict(dict):
@@ -254,6 +256,219 @@ class Run:
             print(f"Run finished: {self.state}")
         except Exception as e:
             print(f"Warning: Failed to finish run: {e}")
+
+    def log_artifact(
+        self,
+        artifact: Artifact,
+        aliases: Optional[List[str]] = None
+    ) -> Artifact:
+        """Log an artifact.
+
+        Args:
+            artifact: Artifact object to log
+            aliases: List of aliases for this artifact version (e.g., ['latest', 'best'])
+
+        Returns:
+            The logged artifact with version information
+
+        Raises:
+            RuntimeError: If run hasn't been started
+            WanLLMDBError: If artifact logging fails
+        """
+        if self.id is None:
+            raise RuntimeError("Run not started. Call start() first.")
+
+        print(f"Logging artifact '{artifact.name}' ({artifact.type})...")
+
+        try:
+            # 1. Create or get artifact
+            artifact_data = {
+                'name': artifact.name,
+                'type': artifact.type,
+                'project_id': self.project_id,
+                'description': artifact.description,
+                'metadata': artifact.metadata,
+            }
+
+            # Try to get existing artifact
+            try:
+                artifact_response = self.api_client.get(
+                    f'/artifacts?project_id={self.project_id}&name={artifact.name}'
+                )
+                if artifact_response['items']:
+                    artifact_obj = artifact_response['items'][0]
+                    artifact._artifact_id = artifact_obj['id']
+                    print(f"  Using existing artifact: {artifact_obj['id']}")
+                else:
+                    raise Exception("Not found")
+            except:
+                # Create new artifact
+                artifact_response = self.api_client.post('/artifacts', data=artifact_data)
+                artifact._artifact_id = artifact_response['id']
+                print(f"  Created new artifact: {artifact._artifact_id}")
+
+            # 2. Create new version
+            version_data = {
+                'artifact_id': artifact._artifact_id,
+                'description': f"Logged from run {self.name}",
+                'metadata': {},
+                'run_id': self.id,
+            }
+
+            version_response = self.api_client.post(
+                f'/artifacts/{artifact._artifact_id}/versions',
+                data=version_data
+            )
+            version_id = version_response['id']
+            artifact._version = version_response['version']
+            artifact._version_id = version_id
+            artifact._project_id = self.project_id
+
+            print(f"  Created version: {artifact._version}")
+
+            # 3. Upload files
+            if artifact._files:
+                print(f"  Uploading {len(artifact._files)} file(s)...")
+                for artifact_file in artifact._files:
+                    # Compute hashes
+                    artifact_file.compute_hashes()
+
+                    # Get upload URL
+                    upload_request = {
+                        'path': artifact_file.artifact_path,
+                        'name': os.path.basename(artifact_file.artifact_path),
+                        'size': artifact_file.size,
+                        'md5_hash': artifact_file.md5_hash,
+                        'sha256_hash': artifact_file.sha256_hash,
+                    }
+
+                    upload_response = self.api_client.post(
+                        f'/artifacts/versions/{version_id}/files/upload-url',
+                        data=upload_request
+                    )
+
+                    # Upload to MinIO
+                    upload_url = upload_response['upload_url']
+                    self.api_client.upload_file(artifact_file.local_path, upload_url)
+
+                    # Register file
+                    file_data = {
+                        'path': artifact_file.artifact_path,
+                        'name': os.path.basename(artifact_file.artifact_path),
+                        'size': artifact_file.size,
+                        'storage_key': upload_response['storage_key'],
+                        'md5_hash': artifact_file.md5_hash,
+                        'sha256_hash': artifact_file.sha256_hash,
+                    }
+
+                    self.api_client.post(
+                        f'/artifacts/versions/{version_id}/files',
+                        data=file_data
+                    )
+
+                    print(f"    ✓ {artifact_file.artifact_path}")
+
+            # 4. Finalize version
+            self.api_client.post(f'/artifacts/versions/{version_id}/finalize')
+            print(f"  ✓ Artifact logged successfully")
+
+            # 5. Add aliases (if backend supports it)
+            # TODO: Implement alias support in backend
+
+            return artifact
+
+        except Exception as e:
+            raise WanLLMDBError(f"Failed to log artifact: {e}")
+
+    def use_artifact(
+        self,
+        artifact_or_name: str,
+        type: Optional[str] = None,
+        version: Optional[str] = None,
+        alias: Optional[str] = None
+    ) -> Artifact:
+        """Use an artifact.
+
+        Args:
+            artifact_or_name: Artifact name or "name:version" or "name:alias"
+            type: Artifact type filter
+            version: Specific version to use (optional if using alias)
+            alias: Alias to use (e.g., 'latest', 'best')
+
+        Returns:
+            Artifact object ready for download
+
+        Raises:
+            WanLLMDBError: If artifact not found or access fails
+        """
+        # Parse artifact name and version
+        if ':' in artifact_or_name:
+            name, version_or_alias = artifact_or_name.split(':', 1)
+            if version is None and alias is None:
+                # Try to determine if it's a version or alias
+                # For now, assume it's a version
+                version = version_or_alias
+        else:
+            name = artifact_or_name
+
+        print(f"Using artifact '{name}'...")
+
+        try:
+            # Get artifact
+            artifact_response = self.api_client.get(
+                f'/artifacts?project_id={self.project_id}&name={name}'
+            )
+
+            if not artifact_response['items']:
+                raise WanLLMDBError(f"Artifact '{name}' not found")
+
+            artifact_data = artifact_response['items'][0]
+            artifact_id = artifact_data['id']
+
+            # Get version
+            if version:
+                # Get specific version
+                versions_response = self.api_client.get(
+                    f'/artifacts/{artifact_id}/versions'
+                )
+                version_data = None
+                for v in versions_response['items']:
+                    if v['version'] == version:
+                        version_data = v
+                        break
+
+                if not version_data:
+                    raise WanLLMDBError(f"Version '{version}' not found")
+            else:
+                # Get latest version
+                versions_response = self.api_client.get(
+                    f'/artifacts/{artifact_id}/versions?limit=1'
+                )
+                if not versions_response['items']:
+                    raise WanLLMDBError(f"No versions found for artifact '{name}'")
+                version_data = versions_response['items'][0]
+
+            # Create Artifact object
+            artifact = Artifact(
+                name=artifact_data['name'],
+                type=artifact_data['type'],
+                description=artifact_data.get('description'),
+                metadata=artifact_data.get('metadata', {})
+            )
+
+            artifact._artifact_id = artifact_id
+            artifact._version = version_data['version']
+            artifact._version_id = version_data['id']
+            artifact._project_id = self.project_id
+
+            print(f"  ✓ Artifact '{name}:{artifact._version}' ready")
+
+            return artifact
+
+        except Exception as e:
+            if isinstance(e, WanLLMDBError):
+                raise
+            raise WanLLMDBError(f"Failed to use artifact: {e}")
 
     def _start_system_monitor(self) -> None:
         """Start system metrics monitoring."""

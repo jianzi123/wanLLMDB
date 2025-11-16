@@ -194,3 +194,62 @@ class APIClient:
             base_url=self.metric_url,
             json={"metrics": metrics},
         )
+
+    # Generic HTTP methods
+    def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Generic GET request."""
+        return self._request("GET", endpoint, params=params)
+
+    def post(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Generic POST request."""
+        return self._request("POST", endpoint, json=data)
+
+    def put(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Generic PUT request."""
+        return self._request("PUT", endpoint, json=data)
+
+    def delete(self, endpoint: str) -> Dict[str, Any]:
+        """Generic DELETE request."""
+        return self._request("DELETE", endpoint)
+
+    # File upload/download methods
+    def upload_file(self, file_path: str, presigned_url: str) -> None:
+        """Upload a file to a presigned URL.
+
+        Args:
+            file_path: Local path to the file
+            presigned_url: Presigned URL for upload
+
+        Raises:
+            APIError: If upload fails
+        """
+        try:
+            with open(file_path, 'rb') as f:
+                response = requests.put(presigned_url, data=f)
+                response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            raise APIError(f"File upload failed: {e}")
+        except Exception as e:
+            raise APIError(f"File upload failed: {e}")
+
+    def download_file(self, presigned_url: str, destination_path: str) -> None:
+        """Download a file from a presigned URL.
+
+        Args:
+            presigned_url: Presigned URL for download
+            destination_path: Local path to save the file
+
+        Raises:
+            APIError: If download fails
+        """
+        try:
+            response = requests.get(presigned_url, stream=True)
+            response.raise_for_status()
+
+            with open(destination_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        except requests.exceptions.HTTPError as e:
+            raise APIError(f"File download failed: {e}")
+        except Exception as e:
+            raise APIError(f"File download failed: {e}")
