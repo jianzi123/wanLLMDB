@@ -27,6 +27,14 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    # Check if token is blacklisted (revoked)
+    if security.is_token_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     payload = security.decode_token(token)
     if payload is None:
         raise credentials_exception
@@ -105,3 +113,28 @@ async def login(
 async def get_me(current_user: Annotated[User, Depends(get_current_user)]):
     """Get current user information"""
     return current_user
+
+
+@router.post("/logout")
+async def logout(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Logout by revoking the current access token.
+
+    The token will be added to a blacklist and will no longer be valid.
+    Client should also delete the token from local storage.
+    """
+    success = security.revoke_token(token)
+
+    if success:
+        return {"message": "Successfully logged out", "token_revoked": True}
+    else:
+        # Token was invalid or Redis unavailable
+        # Still return success to client (they wanted to logout anyway)
+        return {
+            "message": "Logged out (token blacklist unavailable)",
+            "token_revoked": False,
+            "warning": "Token was not blacklisted due to system unavailability"
+        }
