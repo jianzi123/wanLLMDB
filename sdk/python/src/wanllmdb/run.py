@@ -388,8 +388,22 @@ class Run:
             self.api_client.post(f'/artifacts/versions/{version_id}/finalize')
             print(f"  ✓ Artifact logged successfully")
 
-            # 5. Add aliases (if backend supports it)
-            # TODO: Implement alias support in backend
+            # 5. Add aliases
+            if aliases:
+                print(f"  Adding {len(aliases)} alias(es)...")
+                for alias in aliases:
+                    try:
+                        alias_data = {
+                            'alias': alias,
+                            'version_id': version_id,
+                        }
+                        self.api_client.post(
+                            f'/artifacts/{artifact._artifact_id}/aliases',
+                            data=alias_data
+                        )
+                        print(f"    ✓ '{alias}'")
+                    except Exception as e:
+                        print(f"    Warning: Failed to add alias '{alias}': {e}")
 
             return artifact
 
@@ -442,7 +456,17 @@ class Run:
             artifact_id = artifact_data['id']
 
             # Get version
-            if version:
+            if alias:
+                # Get version by alias
+                try:
+                    alias_response = self.api_client.get(
+                        f'/artifacts/{artifact_id}/aliases/{alias}'
+                    )
+                    version_data = alias_response['version']
+                    print(f"  Using alias '{alias}' → version '{version_data['version']}'")
+                except Exception as e:
+                    raise WanLLMDBError(f"Alias '{alias}' not found: {e}")
+            elif version:
                 # Get specific version
                 versions_response = self.api_client.get(
                     f'/artifacts/{artifact_id}/versions'
