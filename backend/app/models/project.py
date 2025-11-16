@@ -1,5 +1,6 @@
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Enum
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 import enum
@@ -24,5 +25,8 @@ class Project(Base):
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+    # Relationships
+    artifacts = relationship("Artifact", back_populates="project", cascade="all, delete-orphan")
 
     # Note: organization_id will be added later when we implement organizations
