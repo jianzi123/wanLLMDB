@@ -241,3 +241,124 @@ export interface ArtifactVersionFormData {
   runId?: string
   metadata?: Record<string, unknown>
 }
+
+// Sweep types
+export type SweepMethod = 'random' | 'grid' | 'bayes'
+export type SweepState = 'pending' | 'running' | 'paused' | 'finished' | 'failed' | 'canceled'
+export type MetricGoal = 'minimize' | 'maximize'
+
+export interface ParameterDistribution {
+  // For categorical parameters
+  values?: any[]
+
+  // For continuous parameters
+  distribution?: 'uniform' | 'log_uniform' | 'int_uniform' | 'normal'
+  min?: number
+  max?: number
+
+  // For normal distribution
+  mu?: number
+  sigma?: number
+
+  // For quantization
+  q?: number
+}
+
+export interface SweepConfig {
+  method: SweepMethod
+  metric: {
+    name: string
+    goal: MetricGoal
+  }
+  parameters: Record<string, ParameterDistribution>
+  early_terminate?: Record<string, any>
+  run_cap?: number
+}
+
+export interface Sweep {
+  id: string
+  name: string
+  description?: string
+  projectId: string
+  createdBy: string
+  method: SweepMethod
+  metricName: string
+  metricGoal: MetricGoal
+  config: Record<string, ParameterDistribution>
+  earlyTerminate?: Record<string, any>
+  state: SweepState
+  runCount: number
+  runCap?: number
+  bestRunId?: string
+  bestValue?: number
+  optunaConfig?: Record<string, any>
+  createdAt: string
+  updatedAt: string
+  startedAt?: string
+  finishedAt?: string
+}
+
+export interface SweepRun {
+  id: string
+  sweepId: string
+  runId: string
+  trialNumber?: number
+  trialState?: string
+  suggestedParams?: Record<string, any>
+  metricValue?: number
+  isBest: boolean
+  createdAt: string
+  evaluatedAt?: string
+}
+
+export interface SweepStats {
+  sweepId: string
+  totalRuns: number
+  completedRuns: number
+  runningRuns: number
+  failedRuns: number
+  bestValue?: number
+  bestRunId?: string
+  bestParams?: Record<string, any>
+  parameterImportance?: Record<string, number>
+}
+
+export interface SweepWithStats extends Sweep {
+  stats?: SweepStats
+}
+
+export interface SweepRunDetail extends SweepRun {
+  run?: Run
+}
+
+export interface ParallelCoordinatesData {
+  sweepId: string
+  dimensions: string[]
+  data: Array<Record<string, any>>
+  bestIndex?: number
+}
+
+export interface SweepList {
+  items: Sweep[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface SweepFormData {
+  name: string
+  description?: string
+  projectId: string
+  method: SweepMethod
+  metricName: string
+  metricGoal: MetricGoal
+  config: Record<string, ParameterDistribution>
+  earlyTerminate?: Record<string, any>
+  runCap?: number
+}
+
+export interface SweepSuggestResponse {
+  suggestedParams: Record<string, any>
+  trialNumber?: number
+}
