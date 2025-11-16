@@ -1,5 +1,6 @@
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Enum, JSON
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 import enum
@@ -49,3 +50,6 @@ class Run(Base):
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+    # Relationships
+    files = relationship("RunFile", back_populates="run", cascade="all, delete-orphan")

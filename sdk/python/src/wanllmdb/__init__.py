@@ -6,7 +6,7 @@ A powerful Python SDK for ML experiment management.
 
 __version__ = "0.1.0"
 
-from wanllmdb.sdk import init, finish, log
+from wanllmdb.sdk import init, finish, log, save
 from wanllmdb.run import Run
 from wanllmdb.config import Config
 from wanllmdb.sweep import sweep, agent, SweepController
@@ -55,6 +55,7 @@ __all__ = [
     "init",
     "finish",
     "log",
+    "save",
     "Run",
     "Config",
     "sweep",

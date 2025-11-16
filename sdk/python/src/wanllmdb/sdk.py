@@ -159,6 +159,39 @@ def finish(exit_code: int = 0) -> None:
         wanllmdb.set_run(None)
 
 
+def save(
+    glob_str: str,
+    base_path: Optional[str] = None,
+    policy: str = "live"
+) -> None:
+    """
+    Save files to the current run.
+
+    This function uploads files to be associated with the run. Unlike artifacts,
+    these files are directly tied to a specific run and are not versioned.
+
+    Args:
+        glob_str: File path or glob pattern (e.g., "*.txt", "data/**/*.csv")
+        base_path: Base path for computing relative paths. If None, uses cwd
+        policy: Upload policy - "live" (immediate), "end" (at run end), "now" (same as live)
+
+    Raises:
+        WanLLMDBError: If no run is initialized
+
+    Example:
+        >>> wandb.save("model.pkl")  # Save single file
+        >>> wandb.save("logs/*.txt")  # Save all txt files in logs/
+        >>> wandb.save("data/**/*.csv")  # Save all csv files recursively
+    """
+    run = wanllmdb.get_run()
+    if run is None:
+        raise WanLLMDBError(
+            "No run is initialized. Call wandb.init() first."
+        )
+
+    run.save(glob_str, base_path=base_path, policy=policy)
+
+
 # Convenience properties for accessing run attributes
 class _RunProxy:
     """Proxy object for accessing run attributes."""

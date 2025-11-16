@@ -470,6 +470,134 @@ class Run:
                 raise
             raise WanLLMDBError(f"Failed to use artifact: {e}")
 
+    def save(
+        self,
+        glob_str: str,
+        base_path: Optional[str] = None,
+        policy: str = "live"
+    ) -> None:
+        """Save files to the run.
+
+        This method uploads files to be associated with the run. Unlike artifacts,
+        these files are directly tied to a specific run and are not versioned.
+
+        Args:
+            glob_str: File path or glob pattern (e.g., "*.txt", "data/**/*.csv")
+            base_path: Base path for computing relative paths. If None, uses cwd
+            policy: Upload policy - "live" (immediate), "end" (at run end), "now" (same as live)
+
+        Example:
+            >>> run.save("model.pkl")  # Save single file
+            >>> run.save("logs/*.txt")  # Save all txt files in logs/
+            >>> run.save("data/**/*.csv")  # Save all csv files recursively
+        """
+        import glob as glob_module
+        import hashlib
+
+        if self.id is None:
+            raise WanLLMDBError("Cannot save files to a run that hasn't been created")
+
+        # TODO: Implement policy="end" to defer upload until run.finish()
+        if policy not in ["live", "now"]:
+            print(f"Warning: Policy '{policy}' not yet implemented, using 'live'")
+
+        # Resolve base path
+        if base_path is None:
+            base_path = os.getcwd()
+        base_path = os.path.abspath(base_path)
+
+        # Find files matching glob pattern
+        glob_path = os.path.join(base_path, glob_str)
+        files = glob_module.glob(glob_path, recursive=True)
+
+        # Filter out directories
+        files = [f for f in files if os.path.isfile(f)]
+
+        if not files:
+            print(f"Warning: No files found matching pattern: {glob_str}")
+            return
+
+        print(f"Saving {len(files)} file(s)...")
+
+        for file_path in files:
+            try:
+                # Get file info
+                file_path = os.path.abspath(file_path)
+                file_name = os.path.basename(file_path)
+                file_size = os.path.getsize(file_path)
+
+                # Compute relative path
+                try:
+                    rel_path = os.path.relpath(file_path, base_path)
+                except ValueError:
+                    # Different drives on Windows
+                    rel_path = file_name
+
+                # Normalize path separators
+                rel_path = rel_path.replace(os.sep, '/')
+
+                # Compute hashes
+                md5_hash = hashlib.md5()
+                sha256_hash = hashlib.sha256()
+
+                with open(file_path, 'rb') as f:
+                    while chunk := f.read(8192):
+                        md5_hash.update(chunk)
+                        sha256_hash.update(chunk)
+
+                md5 = md5_hash.hexdigest()
+                sha256 = sha256_hash.hexdigest()
+
+                # Detect content type
+                content_type = None
+                ext = os.path.splitext(file_name)[1].lower()
+                content_type_map = {
+                    '.txt': 'text/plain',
+                    '.json': 'application/json',
+                    '.csv': 'text/csv',
+                    '.pkl': 'application/octet-stream',
+                    '.png': 'image/png',
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.pdf': 'application/pdf',
+                }
+                content_type = content_type_map.get(ext)
+
+                # Get upload URL
+                upload_request = {
+                    'name': file_name,
+                    'path': rel_path,
+                    'size': file_size,
+                    'content_type': content_type,
+                }
+
+                upload_response = self.api_client.post(
+                    f'/runs/{self.id}/files/upload-url',
+                    data=upload_request
+                )
+
+                # Upload file to storage
+                upload_url = upload_response['upload_url']
+                self.api_client.upload_file(file_path, upload_url)
+
+                # Register file in database
+                file_data = {
+                    'name': file_name,
+                    'path': rel_path,
+                    'size': file_size,
+                    'content_type': content_type,
+                    'storage_key': upload_response['storage_key'],
+                    'md5_hash': md5,
+                    'sha256_hash': sha256,
+                }
+
+                self.api_client.post(f'/runs/{self.id}/files', data=file_data)
+
+                print(f"  ✓ {rel_path} ({file_size / 1024:.1f} KB)")
+
+            except Exception as e:
+                print(f"  ✗ Failed to save {file_path}: {e}")
+
     def _start_system_monitor(self) -> None:
         """Start system metrics monitoring."""
         self._system_monitor = SystemMonitor(

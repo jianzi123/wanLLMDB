@@ -23,6 +23,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import { useGetRunQuery, useFinishRunMutation } from '@/services/runsApi'
+import RunFilesTab from '@/components/RunFilesTab'
 
 dayjs.extend(duration)
 
@@ -246,11 +247,7 @@ function RunDetailPage() {
           {
             key: 'files',
             label: 'Files',
-            children: (
-              <Card>
-                <Empty description="File management will be implemented in future sprints" />
-              </Card>
-            ),
+            children: <RunFilesTab runId={id!} />,
           },
           {
             key: 'logs',
