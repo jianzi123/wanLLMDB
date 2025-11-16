@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wanllmdb-config
+  namespace: wanllmdb
+data:
+  # Production environment settings
+  APP_ENV: "production"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  # Update with your actual production domain
+  CORS_ORIGINS: "https://wanllmdb.example.com,https://api.wanllmdb.example.com"

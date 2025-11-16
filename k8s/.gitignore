@@ -1,0 +1,16 @@
+# Kubernetes Secrets (DO NOT COMMIT!)
+base/secrets.yaml
+overlays/*/secrets.yaml
+
+# Backups
+backups/
+*.sql
+*.sql.gz
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# Generated files
+.kustomize/

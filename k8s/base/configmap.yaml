@@ -1,0 +1,47 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wanllmdb-config
+  namespace: wanllmdb
+data:
+  # Application
+  APP_NAME: "wanLLMDB"
+  APP_VERSION: "0.1.0"
+  APP_ENV: "production"
+  DEBUG: "false"
+
+  # Server
+  HOST: "0.0.0.0"
+  PORT: "8000"
+
+  # Database
+  POSTGRES_DB: "wanllmdb"
+  POSTGRES_USER: "wanllm"
+  POSTGRES_PORT: "5432"
+  DATABASE_POOL_SIZE: "50"
+  DATABASE_MAX_OVERFLOW: "20"
+  DATABASE_POOL_RECYCLE: "3600"
+  DATABASE_POOL_PRE_PING: "true"
+
+  # Redis
+  REDIS_PORT: "6379"
+
+  # MinIO
+  MINIO_ENDPOINT: "minio:9000"
+  MINIO_PORT: "9000"
+  MINIO_CONSOLE_PORT: "9001"
+  MINIO_SECURE: "false"
+  MINIO_BUCKET_NAME: "wanllmdb-artifacts"
+  MINIO_BROWSER: "on"
+
+  # JWT
+  ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  REFRESH_TOKEN_EXPIRE_DAYS: "7"
+
+  # CORS (will be overridden in overlays)
+  CORS_ORIGINS: "http://localhost:3000"
+
+  # Logging
+  LOG_LEVEL: "INFO"

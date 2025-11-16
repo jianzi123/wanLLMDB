@@ -1,0 +1,8 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wanllmdb
+  labels:
+    name: wanllmdb
+    app: wanllmdb
