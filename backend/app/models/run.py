@@ -53,3 +53,4 @@ class Run(Base):
 
     # Relationships
     files = relationship("RunFile", back_populates="run", cascade="all, delete-orphan")
+    logs = relationship("RunLog", back_populates="run", cascade="all, delete-orphan")

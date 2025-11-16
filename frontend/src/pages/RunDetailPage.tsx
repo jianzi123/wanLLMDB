@@ -24,6 +24,7 @@ import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import { useGetRunQuery, useFinishRunMutation } from '@/services/runsApi'
 import RunFilesTab from '@/components/RunFilesTab'
+import LogViewer from '@/components/LogViewer'
 
 dayjs.extend(duration)
 
@@ -252,11 +253,7 @@ function RunDetailPage() {
           {
             key: 'logs',
             label: 'Logs',
-            children: (
-              <Card>
-                <Empty description="Log viewing will be implemented in future sprints" />
-              </Card>
-            ),
+            children: <LogViewer runId={id!} />,
           },
         ]}
       />

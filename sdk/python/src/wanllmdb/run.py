@@ -15,6 +15,7 @@ from wanllmdb.system_monitor import SystemMonitor
 from wanllmdb.git_info import GitInfo
 from wanllmdb.errors import WanLLMDBError
 from wanllmdb.artifact import Artifact
+from wanllmdb.logging import LogCapture
 
 
 class ConfigDict(dict):
@@ -69,6 +70,7 @@ class Run:
         monitor_system: bool = True,
         monitor_interval: int = 30,
         git_tracking: bool = True,
+        capture_logs: bool = True,
     ):
         """
         Initialize a Run.
@@ -83,6 +85,7 @@ class Run:
             monitor_system: Enable system metrics collection
             monitor_interval: System metrics interval in seconds
             git_tracking: Enable git tracking
+            capture_logs: Enable automatic log capture (stdout/stderr)
         """
         self.api_client = api_client
         self.project_id = project_id
@@ -119,6 +122,10 @@ class Run:
         # Heartbeat
         self._heartbeat_thread: Optional[Thread] = None
         self._stop_heartbeat = Event()
+
+        # Log capture
+        self._capture_logs = capture_logs
+        self._log_capture: Optional[LogCapture] = None
 
     @property
     def config(self) -> ConfigDict:
@@ -175,6 +182,11 @@ class Run:
 
         # Start heartbeat
         self._start_heartbeat()
+
+        # Start log capture
+        if self._capture_logs:
+            self._log_capture = LogCapture(self)
+            self._log_capture.start()
 
     def log(
         self,
@@ -240,6 +252,10 @@ class Run:
         self._stop_heartbeat.set()
         if self._heartbeat_thread:
             self._heartbeat_thread.join(timeout=5)
+
+        # Stop log capture
+        if self._log_capture:
+            self._log_capture.stop()
 
         # Flush remaining metrics
         self._metrics_buffer.flush()
@@ -616,6 +632,23 @@ class Run:
 
         self._monitor_thread = Thread(target=monitor_loop, daemon=True)
         self._monitor_thread.start()
+
+    def _upload_logs(self, logs: List[Dict[str, Any]]) -> None:
+        """Upload logs to backend.
+
+        Args:
+            logs: List of log entries to upload
+        """
+        if not logs or self.id is None:
+            return
+
+        try:
+            self.api_client.post(
+                f'/runs/{self.id}/logs/batch',
+                data={'logs': logs}
+            )
+        except Exception as e:
+            print(f"Warning: Failed to upload logs: {e}")
 
     def _start_heartbeat(self) -> None:
         """Start heartbeat thread."""

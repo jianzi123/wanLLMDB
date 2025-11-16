@@ -22,6 +22,7 @@ def init(
     monitor_system: bool = True,
     monitor_interval: int = 30,
     git_tracking: bool = True,
+    capture_logs: bool = True,
     reinit: bool = False,
 ) -> Run:
     """
@@ -36,6 +37,7 @@ def init(
         monitor_system: Enable system metrics collection
         monitor_interval: System metrics collection interval in seconds
         git_tracking: Enable automatic git information capture
+        capture_logs: Enable automatic log capture (stdout/stderr)
         reinit: Allow reinitializing if a run is already active
 
     Returns:
@@ -102,6 +104,7 @@ def init(
         monitor_system=monitor_system,
         monitor_interval=monitor_interval,
         git_tracking=git_tracking,
+        capture_logs=capture_logs,
     )
 
     # Start the run
