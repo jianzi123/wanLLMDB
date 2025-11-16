@@ -10,6 +10,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   SettingOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { logout } from '@features/auth/authSlice'
@@ -38,6 +39,11 @@ function AppLayout() {
       key: '/runs',
       icon: <ExperimentOutlined />,
       label: 'Runs',
+    },
+    {
+      key: '/sweeps',
+      icon: <ThunderboltOutlined />,
+      label: 'Sweeps',
     },
     {
       key: '/artifacts',

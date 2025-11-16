@@ -12,6 +12,8 @@ import WorkspacePage from './pages/WorkspacePage'
 import RunComparePage from './pages/RunComparePage'
 import ArtifactsPage from './pages/ArtifactsPage'
 import ArtifactDetailPage from './pages/ArtifactDetailPage'
+import SweepsPage from './pages/SweepsPage'
+import SweepDetailPage from './pages/SweepDetailPage'
 import './App.css'
 
 function App() {
@@ -35,6 +37,8 @@ function App() {
           <Route path="/runs/compare" element={<RunComparePage />} />
           <Route path="/artifacts" element={<ArtifactsPage />} />
           <Route path="/artifacts/:id" element={<ArtifactDetailPage />} />
+          <Route path="/sweeps" element={<SweepsPage />} />
+          <Route path="/sweeps/:id" element={<SweepDetailPage />} />
           <Route path="/workspace/:id" element={<WorkspacePage />} />
         </Route>
 
