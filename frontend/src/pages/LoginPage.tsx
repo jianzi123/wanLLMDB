@@ -1,17 +1,32 @@
-import { Form, Input, Button, Typography } from 'antd'
+import { Form, Input, Button, Typography, message } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
+import { useLoginMutation, useGetMeQuery } from '@/services/authApi'
+import { setCredentials } from '@features/auth/authSlice'
+import { useAppDispatch } from '@/store/hooks'
 import type { LoginFormData } from '@/types'
 
 const { Title, Text } = Typography
 
 function LoginPage() {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
+  const [login, { isLoading }] = useLoginMutation()
 
-  const onFinish = (values: LoginFormData) => {
-    console.log('Login:', values)
-    // TODO: Implement login logic
-    navigate('/dashboard')
+  const onFinish = async (values: LoginFormData) => {
+    try {
+      const tokens = await login(values).unwrap()
+
+      // Store tokens
+      dispatch(setCredentials({ user: null as any, tokens }))
+
+      // Get user info
+      // Note: We'll fetch this after login
+      message.success('Login successful!')
+      navigate('/dashboard')
+    } catch (error: any) {
+      message.error(error?.data?.detail || 'Login failed. Please try again.')
+    }
   }
 
   return (
@@ -41,7 +56,7 @@ function LoginPage() {
         </Form.Item>
 
         <Form.Item>
-          <Button type="primary" htmlType="submit" block>
+          <Button type="primary" htmlType="submit" block loading={isLoading}>
             Sign In
           </Button>
         </Form.Item>

@@ -1,17 +1,28 @@
-import { Form, Input, Button, Typography } from 'antd'
+import { Form, Input, Button, Typography, message } from 'antd'
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
+import { useRegisterMutation } from '@/services/authApi'
 import type { RegisterFormData } from '@/types'
 
 const { Title, Text } = Typography
 
 function RegisterPage() {
   const navigate = useNavigate()
+  const [register, { isLoading }] = useRegisterMutation()
 
-  const onFinish = (values: RegisterFormData) => {
-    console.log('Register:', values)
-    // TODO: Implement register logic
-    navigate('/login')
+  const onFinish = async (values: RegisterFormData) => {
+    try {
+      await register({
+        username: values.username,
+        email: values.email,
+        password: values.password,
+      }).unwrap()
+
+      message.success('Registration successful! Please log in.')
+      navigate('/login')
+    } catch (error: any) {
+      message.error(error?.data?.detail || 'Registration failed. Please try again.')
+    }
   }
 
   return (
@@ -69,7 +80,7 @@ function RegisterPage() {
         </Form.Item>
 
         <Form.Item>
-          <Button type="primary" htmlType="submit" block>
+          <Button type="primary" htmlType="submit" block loading={isLoading}>
             Sign Up
           </Button>
         </Form.Item>
