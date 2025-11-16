@@ -9,7 +9,8 @@ from typing import Dict, Any
 import psutil
 import platform
 
-from fastapi import APIRouter, Depends, status, Response
+from fastapi import APIRouter, Depends, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -89,15 +90,16 @@ async def readiness_check(db: Session = Depends(get_db)):
 
     status_code = status.HTTP_200_OK if is_ready else status.HTTP_503_SERVICE_UNAVAILABLE
 
-    return Response(
-        content={
-            "ready": is_ready,
-            "checks": checks,
-            "errors": errors if errors else None,
-            "timestamp": datetime.utcnow().isoformat(),
-        },
+    response_data = {
+        "ready": is_ready,
+        "checks": checks,
+        "errors": errors if errors else None,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+    return JSONResponse(
+        content=response_data,
         status_code=status_code,
-        media_type="application/json",
     )
 
 

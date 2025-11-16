@@ -84,7 +84,7 @@ class AuditLogger:
             resource_name=resource_name,
             status=status,
             error_message=error_message,
-            metadata=metadata,
+            event_metadata=metadata,
             **request_info,
         )
 

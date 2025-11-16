@@ -22,6 +22,8 @@ httpx = "^0.26.0"
 python-dotenv = "^1.0.0"
 slowapi = "^0.1.9"
 psutil = "^5.9.6"
+email-validator = "^2.3.0"
+minio = "^7.2.18"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.4"

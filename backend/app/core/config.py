@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Admin users (for audit log access and other admin operations)
+    # Comma-separated list of admin usernames
+    ADMIN_USERS: str = ""  # Empty by default, must be configured
+
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
 
@@ -72,6 +76,12 @@ class Settings(BaseSettings):
                 "Generate with: openssl rand -hex 32"
             )
         return v
+
+    def get_admin_users(self) -> List[str]:
+        """Get list of admin usernames from comma-separated string"""
+        if not self.ADMIN_USERS:
+            return []
+        return [user.strip() for user in self.ADMIN_USERS.split(',') if user.strip()]
 
     class Config:
         env_file = ".env"

@@ -20,7 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import relationship
 
-from app.core.database import Base
+from app.db.database import Base
 
 
 class AuditLog(Base):
@@ -115,7 +115,7 @@ class AuditLog(Base):
     """Name of the affected resource"""
 
     # Additional context
-    metadata = Column(JSON, nullable=True)
+    event_metadata = Column(JSON, nullable=True)
     """
     Additional context as JSON. Examples:
     - {"failed_attempts": 3, "reason": "invalid_password"}

@@ -13,6 +13,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
+from app.core.config import settings
 from app.db.database import get_db
 from app.models.audit_log import AuditLog
 from app.models.user import User as UserModel
@@ -44,7 +45,7 @@ class AuditLogResponse(BaseModel):
     resource_type: Optional[str]
     resource_id: Optional[str]
     resource_name: Optional[str]
-    metadata: Optional[dict]
+    event_metadata: Optional[dict]
     status: str
     error_message: Optional[str]
     created_at: datetime
@@ -70,8 +71,11 @@ def check_admin_user(current_user: User, db: Session) -> UserModel:
     """
     Verify that current user is an admin.
 
-    Note: This is a placeholder. In a real application, you would check
-    a proper role/permission system. For now, we'll just check if user exists.
+    Admin users are configured via ADMIN_USERS environment variable.
+    Format: comma-separated usernames (e.g., "admin,tech_lead,manager")
+
+    Raises:
+        HTTPException: If user is not found, admin users not configured, or user is not an admin
     """
     user = db.query(UserModel).filter(UserModel.id == current_user.id).first()
     if not user:
@@ -79,9 +83,22 @@ def check_admin_user(current_user: User, db: Session) -> UserModel:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
-    # TODO: Add proper admin role check when role system is implemented
-    # if not user.is_admin:
-    #     raise HTTPException(...)
+
+    # Get configured admin users
+    admin_users = settings.get_admin_users()
+
+    if not admin_users:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin users not configured. Please set ADMIN_USERS environment variable.",
+        )
+
+    if user.username not in admin_users:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required. Only administrators can access audit logs.",
+        )
+
     return user
 
 
