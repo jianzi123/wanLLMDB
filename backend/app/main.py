@@ -5,6 +5,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.api.v1 import api_router
+from app.api import monitoring
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -31,6 +32,9 @@ app.add_middleware(
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
 
+# Include monitoring router (health checks, metrics)
+app.include_router(monitoring.router, tags=["monitoring"])
+
 
 @app.get("/")
 async def root():
@@ -39,11 +43,6 @@ async def root():
         "version": settings.APP_VERSION,
         "status": "running",
     }
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
 
 
 if __name__ == "__main__":

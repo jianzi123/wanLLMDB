@@ -8,6 +8,7 @@ from app.db.database import get_db
 from app.schemas.user import User, UserCreate
 from app.schemas.token import Token
 from app.core import security
+from app.core.audit import get_audit_logger
 from app.models.user import User as UserModel
 
 router = APIRouter()
@@ -54,6 +55,8 @@ async def get_current_user(
 @limiter.limit("5/minute")
 async def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db)):
     """Register a new user"""
+    audit = get_audit_logger(db)
+
     # Check if user exists
     existing_user = db.query(UserModel).filter(
         (UserModel.username == user_in.username) | (UserModel.email == user_in.email)
@@ -77,6 +80,14 @@ async def register(request: Request, user_in: UserCreate, db: Session = Depends(
     db.commit()
     db.refresh(db_user)
 
+    # Audit log: User registration
+    audit.log_user_created(
+        admin_user=db_user,  # Self-registration
+        new_user_id=db_user.id,
+        new_username=db_user.username,
+        request=request,
+    )
+
     return User.model_validate(db_user)
 
 
@@ -88,9 +99,17 @@ async def login(
     db: Session = Depends(get_db),
 ):
     """Login with username and password"""
+    audit = get_audit_logger(db)
     user = db.query(UserModel).filter(UserModel.username == form_data.username).first()
 
+    # Check credentials
     if not user or not security.verify_password(form_data.password, user.password_hash):
+        # Audit log: Failed login attempt
+        audit.log_auth_failure(
+            username=form_data.username,
+            reason="invalid_credentials",
+            request=request,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -98,13 +117,23 @@ async def login(
         )
 
     if not user.is_active:
+        # Audit log: Failed login (inactive user)
+        audit.log_auth_failure(
+            username=form_data.username,
+            reason="inactive_user",
+            request=request,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user",
         )
 
+    # Create tokens
     access_token = security.create_access_token(data={"sub": user.username})
     refresh_token = security.create_refresh_token(data={"sub": user.username})
+
+    # Audit log: Successful login
+    audit.log_auth_success(user=user, request=request)
 
     return Token(access_token=access_token, refresh_token=refresh_token)
 
@@ -117,8 +146,10 @@ async def get_me(current_user: Annotated[User, Depends(get_current_user)]):
 
 @router.post("/logout")
 async def logout(
+    request: Request,
     token: Annotated[str, Depends(oauth2_scheme)],
     current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
 ):
     """
     Logout by revoking the current access token.
@@ -126,7 +157,15 @@ async def logout(
     The token will be added to a blacklist and will no longer be valid.
     Client should also delete the token from local storage.
     """
+    audit = get_audit_logger(db)
     success = security.revoke_token(token)
+
+    # Get user model for audit logging
+    user = db.query(UserModel).filter(UserModel.username == current_user.username).first()
+
+    # Audit log: User logout
+    if user:
+        audit.log_logout(user=user, token_revoked=success, request=request)
 
     if success:
         return {"message": "Successfully logged out", "token_revoked": True}
