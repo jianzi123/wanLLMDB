@@ -195,3 +195,48 @@ class ArtifactVersionList(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+# Artifact Alias schemas
+class ArtifactAliasBase(BaseModel):
+    """Base artifact alias schema."""
+    alias: str = Field(..., min_length=1, max_length=100, pattern="^[a-zA-Z0-9_-]+$")
+
+
+class ArtifactAliasCreate(ArtifactAliasBase):
+    """Schema for creating an artifact alias."""
+    version_id: UUID
+
+
+class ArtifactAliasUpdate(BaseModel):
+    """Schema for updating an artifact alias (moving to different version)."""
+    version_id: UUID
+
+
+class ArtifactAliasInDBBase(ArtifactAliasBase):
+    """Base schema for artifact alias in database."""
+    id: UUID
+    artifact_id: UUID
+    version_id: UUID
+    created_by: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ArtifactAlias(ArtifactAliasInDBBase):
+    """Schema for artifact alias response."""
+    pass
+
+
+class ArtifactAliasWithVersion(ArtifactAlias):
+    """Schema for artifact alias with version info."""
+    version: Optional[ArtifactVersion] = None
+
+
+class ArtifactAliasList(BaseModel):
+    """Schema for list of artifact aliases."""
+    items: List[ArtifactAlias]
+    total: int

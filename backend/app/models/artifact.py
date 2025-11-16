@@ -147,3 +147,30 @@ class ArtifactDownload(Base):
     version = relationship("ArtifactVersion")
     user = relationship("User")
     file = relationship("ArtifactFile")
+
+
+class ArtifactAlias(Base):
+    """
+    Artifact alias model for human-friendly version references.
+
+    Aliases like "latest", "production", "stable" point to specific artifact versions.
+    An artifact can only have one version with a specific alias at a time.
+    """
+    __tablename__ = "artifact_aliases"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    artifact_id = Column(PGUUID(as_uuid=True), ForeignKey("artifacts.id"), nullable=False, index=True)
+    version_id = Column(PGUUID(as_uuid=True), ForeignKey("artifact_versions.id"), nullable=False, index=True)
+    alias = Column(String(100), nullable=False, index=True)
+
+    # User who created/updated this alias
+    created_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    artifact = relationship("Artifact")
+    version = relationship("ArtifactVersion")
+    user = relationship("User")

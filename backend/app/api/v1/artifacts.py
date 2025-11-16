@@ -29,6 +29,11 @@ from app.schemas.artifact import (
     FileUploadResponse,
     FileDownloadResponse,
     ArtifactFileCreate,
+    ArtifactAlias,
+    ArtifactAliasCreate,
+    ArtifactAliasUpdate,
+    ArtifactAliasList,
+    ArtifactAliasWithVersion,
 )
 
 router = APIRouter()
@@ -386,3 +391,101 @@ def delete_file(
 
     # Delete from database
     repo.delete_file(file_id)
+
+
+# Alias endpoints
+
+@router.post("/{artifact_id}/aliases", response_model=ArtifactAlias, status_code=status.HTTP_201_CREATED)
+def create_alias(
+    artifact_id: UUID,
+    alias_in: ArtifactAliasCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create or update an artifact alias.
+
+    If the alias already exists for this artifact, it will be moved to the new version.
+    """
+    repo = ArtifactRepository(db)
+
+    # Verify artifact exists
+    artifact = repo.get(artifact_id)
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artifact not found",
+        )
+
+    # Verify version exists and belongs to this artifact
+    version = repo.get_version(alias_in.version_id)
+    if not version or version.artifact_id != artifact_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Version not found or does not belong to this artifact",
+        )
+
+    # Create or update alias
+    alias = repo.create_or_update_alias(artifact_id, alias_in, current_user.id)
+    return alias
+
+
+@router.get("/{artifact_id}/aliases", response_model=ArtifactAliasList)
+def list_aliases(
+    artifact_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all aliases for an artifact."""
+    repo = ArtifactRepository(db)
+
+    # Verify artifact exists
+    artifact = repo.get(artifact_id)
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artifact not found",
+        )
+
+    aliases = repo.list_aliases(artifact_id)
+    return ArtifactAliasList(items=aliases, total=len(aliases))
+
+
+@router.get("/{artifact_id}/aliases/{alias}", response_model=ArtifactAliasWithVersion)
+def get_alias(
+    artifact_id: UUID,
+    alias: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get an artifact version by alias."""
+    repo = ArtifactRepository(db)
+
+    alias_obj = repo.get_alias(artifact_id, alias)
+    if not alias_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Alias '{alias}' not found for this artifact",
+        )
+
+    # Get the version
+    version = repo.get_version(alias_obj.version_id)
+
+    return ArtifactAliasWithVersion(**alias_obj.__dict__, version=version)
+
+
+@router.delete("/{artifact_id}/aliases/{alias}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_alias(
+    artifact_id: UUID,
+    alias: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete an artifact alias."""
+    repo = ArtifactRepository(db)
+
+    success = repo.delete_alias(artifact_id, alias)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Alias '{alias}' not found",
+        )

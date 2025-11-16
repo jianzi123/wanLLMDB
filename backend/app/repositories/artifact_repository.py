@@ -8,8 +8,8 @@ from uuid import UUID
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.artifact import Artifact, ArtifactVersion, ArtifactFile
-from app.schemas.artifact import ArtifactCreate, ArtifactUpdate, ArtifactVersionCreate, ArtifactFileCreate
+from app.models.artifact import Artifact, ArtifactVersion, ArtifactFile, ArtifactAlias
+from app.schemas.artifact import ArtifactCreate, ArtifactUpdate, ArtifactVersionCreate, ArtifactFileCreate, ArtifactAliasCreate
 
 
 class ArtifactRepository:
@@ -247,5 +247,68 @@ class ArtifactRepository:
             version.total_size -= file.size
 
         self.db.delete(file)
+        self.db.commit()
+        return True
+
+    # Alias operations
+    def create_or_update_alias(
+        self, artifact_id: UUID, alias_in: ArtifactAliasCreate, user_id: UUID
+    ) -> ArtifactAlias:
+        """Create or update an artifact alias.
+
+        If the alias already exists for this artifact, update it to point to the new version.
+        Otherwise, create a new alias.
+        """
+        # Check if alias already exists
+        existing = self.get_alias(artifact_id, alias_in.alias)
+
+        if existing:
+            # Update existing alias to point to new version
+            existing.version_id = alias_in.version_id
+            existing.created_by = user_id
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            # Create new alias
+            alias = ArtifactAlias(
+                artifact_id=artifact_id,
+                version_id=alias_in.version_id,
+                alias=alias_in.alias,
+                created_by=user_id,
+            )
+            self.db.add(alias)
+            self.db.commit()
+            self.db.refresh(alias)
+            return alias
+
+    def get_alias(self, artifact_id: UUID, alias: str) -> Optional[ArtifactAlias]:
+        """Get an alias by artifact ID and alias name."""
+        query = select(ArtifactAlias).where(
+            and_(
+                ArtifactAlias.artifact_id == artifact_id,
+                ArtifactAlias.alias == alias
+            )
+        )
+        result = self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    def list_aliases(self, artifact_id: UUID) -> List[ArtifactAlias]:
+        """List all aliases for an artifact."""
+        query = (
+            select(ArtifactAlias)
+            .where(ArtifactAlias.artifact_id == artifact_id)
+            .order_by(ArtifactAlias.alias)
+        )
+        result = self.db.execute(query)
+        return list(result.scalars().all())
+
+    def delete_alias(self, artifact_id: UUID, alias: str) -> bool:
+        """Delete an alias."""
+        alias_obj = self.get_alias(artifact_id, alias)
+        if not alias_obj:
+            return False
+
+        self.db.delete(alias_obj)
         self.db.commit()
         return True
