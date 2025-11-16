@@ -13,6 +13,7 @@ import {
   Modal,
   Form,
   Input,
+  Select,
   Upload,
   message,
   Progress,
@@ -29,6 +30,8 @@ import {
   DownloadOutlined,
   CheckCircleOutlined,
   LockOutlined,
+  TagOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons'
 import { useParams, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -50,6 +53,10 @@ import {
   useAddFileToVersionMutation,
   useLazyGetFileDownloadUrlQuery,
   useDeleteFileMutation,
+  useListAliasesQuery,
+  useCreateAliasMutation,
+  useDeleteAliasMutation,
+  type ArtifactAlias,
 } from '@/services/artifactsApi'
 
 dayjs.extend(relativeTime)
@@ -78,9 +85,11 @@ function ArtifactDetailPage() {
   const [selectedVersionId, setSelectedVersionId] = useState<string>()
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [isAliasModalOpen, setIsAliasModalOpen] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [form] = Form.useForm()
   const [uploadForm] = Form.useForm()
+  const [aliasForm] = Form.useForm()
 
   const { data: artifact, isLoading } = useGetArtifactQuery(id!)
   const { data: versionsData } = useListArtifactVersionsQuery(
@@ -90,6 +99,7 @@ function ArtifactDetailPage() {
   const { data: selectedVersion } = useGetArtifactVersionQuery(selectedVersionId!, {
     skip: !selectedVersionId,
   })
+  const { data: aliasesData } = useListAliasesQuery(id!, { skip: !id })
 
   const [createVersion, { isLoading: isCreatingVersion }] = useCreateArtifactVersionMutation()
   const [finalizeVersion] = useFinalizeVersionMutation()
@@ -97,6 +107,8 @@ function ArtifactDetailPage() {
   const [addFile] = useAddFileToVersionMutation()
   const [getDownloadUrl] = useLazyGetFileDownloadUrlQuery()
   const [deleteFile] = useDeleteFileMutation()
+  const [createAlias, { isLoading: isCreatingAlias }] = useCreateAliasMutation()
+  const [deleteAlias] = useDeleteAliasMutation()
 
   if (isLoading) {
     return (
@@ -210,6 +222,32 @@ function ArtifactDetailPage() {
       message.success('Download started')
     } catch (error) {
       message.error('Failed to download file')
+    }
+  }
+
+  const handleCreateAlias = async (values: { alias: string; versionId: string }) => {
+    try {
+      await createAlias({
+        artifactId: id!,
+        data: {
+          alias: values.alias,
+          versionId: values.versionId,
+        },
+      }).unwrap()
+      message.success('Alias created successfully')
+      setIsAliasModalOpen(false)
+      aliasForm.resetFields()
+    } catch (error: any) {
+      message.error(error?.data?.detail || 'Failed to create alias')
+    }
+  }
+
+  const handleDeleteAlias = async (alias: string) => {
+    try {
+      await deleteAlias({ artifactId: id!, alias }).unwrap()
+      message.success('Alias deleted successfully')
+    } catch (error) {
+      message.error('Failed to delete alias')
     }
   }
 
@@ -355,6 +393,68 @@ function ArtifactDetailPage() {
     },
   ]
 
+  const aliasColumns: ColumnsType<ArtifactAlias> = [
+    {
+      title: 'Alias',
+      dataIndex: 'alias',
+      key: 'alias',
+      render: (text) => (
+        <Space>
+          <TagOutlined />
+          <Text strong>{text}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'Points To Version',
+      dataIndex: 'versionId',
+      key: 'versionId',
+      render: (versionId) => {
+        const version = versionsData?.items?.find(v => v.id === versionId)
+        return version ? (
+          <Tag color="blue">{version.version}</Tag>
+        ) : (
+          <Text type="secondary">Unknown</Text>
+        )
+      },
+    },
+    {
+      title: 'Created',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 150,
+      render: (date: string) => dayjs(date).fromNow(),
+    },
+    {
+      title: 'Updated',
+      dataIndex: 'updatedAt',
+      key: 'updatedAt',
+      width: 150,
+      render: (date: string) => dayjs(date).fromNow(),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 100,
+      render: (_, record) => (
+        <Popconfirm
+          title="Delete alias"
+          description={`Are you sure you want to delete alias '${record.alias}'?`}
+          onConfirm={() => handleDeleteAlias(record.alias)}
+        >
+          <Button
+            type="link"
+            danger
+            size="small"
+            icon={<DeleteOutlined />}
+          >
+            Delete
+          </Button>
+        </Popconfirm>
+      ),
+    },
+  ]
+
   return (
     <div>
       {/* Header */}
@@ -489,6 +589,42 @@ function ArtifactDetailPage() {
             )}
           </Card>
         </Tabs.TabPane>
+
+        <Tabs.TabPane tab={`Aliases (${aliasesData?.total || 0})`} key="aliases">
+          <Card
+            extra={
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setIsAliasModalOpen(true)}
+              >
+                Add Alias
+              </Button>
+            }
+          >
+            {aliasesData && aliasesData.items.length > 0 ? (
+              <Table
+                columns={aliasColumns}
+                dataSource={aliasesData.items}
+                rowKey="id"
+                pagination={false}
+              />
+            ) : (
+              <Empty
+                description="No aliases yet"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              >
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => setIsAliasModalOpen(true)}
+                >
+                  Add First Alias
+                </Button>
+              </Empty>
+            )}
+          </Card>
+        </Tabs.TabPane>
       </Tabs>
 
       {/* Create Version Modal */}
@@ -560,6 +696,53 @@ function ArtifactDetailPage() {
           {uploadProgress > 0 && (
             <Progress percent={Math.round(uploadProgress)} status="active" />
           )}
+        </Form>
+      </Modal>
+
+      {/* Create Alias Modal */}
+      <Modal
+        title="Add Alias"
+        open={isAliasModalOpen}
+        onCancel={() => {
+          setIsAliasModalOpen(false)
+          aliasForm.resetFields()
+        }}
+        onOk={() => aliasForm.submit()}
+        confirmLoading={isCreatingAlias}
+      >
+        <Form form={aliasForm} layout="vertical" onFinish={handleCreateAlias}>
+          <Form.Item
+            label="Alias Name"
+            name="alias"
+            rules={[
+              { required: true, message: 'Please enter an alias name' },
+              {
+                pattern: /^[a-zA-Z0-9_-]+$/,
+                message: 'Only alphanumeric characters, underscores, and hyphens allowed',
+              },
+            ]}
+          >
+            <Input placeholder="e.g., latest, production, stable" />
+          </Form.Item>
+
+          <Form.Item
+            label="Version"
+            name="versionId"
+            rules={[{ required: true, message: 'Please select a version' }]}
+          >
+            <Select placeholder="Select version">
+              {versionsData?.items?.map(version => (
+                <Select.Option key={version.id} value={version.id}>
+                  {version.version}
+                  {version.isFinalized && ' (Finalized)'}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <p style={{ color: '#666', fontSize: '12px' }}>
+            <strong>Note:</strong> If this alias already exists, it will be moved to the selected version.
+          </p>
         </Form>
       </Modal>
     </div>

@@ -51,6 +51,44 @@ interface FinalizeVersionParams {
   digest?: string
 }
 
+// Alias types
+export interface ArtifactAlias {
+  id: string
+  artifactId: string
+  versionId: string
+  alias: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ArtifactAliasWithVersion extends ArtifactAlias {
+  version?: ArtifactVersion
+}
+
+export interface ArtifactAliasList {
+  items: ArtifactAlias[]
+  total: number
+}
+
+interface CreateAliasParams {
+  artifactId: string
+  data: {
+    alias: string
+    versionId: string
+  }
+}
+
+interface GetAliasParams {
+  artifactId: string
+  alias: string
+}
+
+interface DeleteAliasParams {
+  artifactId: string
+  alias: string
+}
+
 export const artifactsApi = api.injectEndpoints({
   endpoints: builder => ({
     // Artifact endpoints
@@ -204,6 +242,51 @@ export const artifactsApi = api.injectEndpoints({
       }),
       invalidatesTags: [{ type: 'ArtifactVersion', id: 'LIST' }],
     }),
+
+    // Alias endpoints
+    createAlias: builder.mutation<ArtifactAlias, CreateAliasParams>({
+      query: ({ artifactId, data }) => ({
+        url: `/artifacts/${artifactId}/aliases`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { artifactId }) => [
+        { type: 'Artifact', id: artifactId },
+        { type: 'ArtifactAlias', id: `LIST-${artifactId}` },
+      ],
+    }),
+
+    listAliases: builder.query<ArtifactAliasList, string>({
+      query: artifactId => `/artifacts/${artifactId}/aliases`,
+      providesTags: (result, _error, artifactId) =>
+        result
+          ? [
+              ...result.items.map(({ id }) => ({
+                type: 'ArtifactAlias' as const,
+                id,
+              })),
+              { type: 'ArtifactAlias', id: `LIST-${artifactId}` },
+            ]
+          : [{ type: 'ArtifactAlias', id: `LIST-${artifactId}` }],
+    }),
+
+    getAlias: builder.query<ArtifactAliasWithVersion, GetAliasParams>({
+      query: ({ artifactId, alias }) => `/artifacts/${artifactId}/aliases/${alias}`,
+      providesTags: (result, _error, { artifactId, alias }) => [
+        { type: 'ArtifactAlias', id: `${artifactId}-${alias}` },
+      ],
+    }),
+
+    deleteAlias: builder.mutation<void, DeleteAliasParams>({
+      query: ({ artifactId, alias }) => ({
+        url: `/artifacts/${artifactId}/aliases/${alias}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { artifactId }) => [
+        { type: 'Artifact', id: artifactId },
+        { type: 'ArtifactAlias', id: `LIST-${artifactId}` },
+      ],
+    }),
   }),
 })
 
@@ -222,4 +305,8 @@ export const {
   useGetFileDownloadUrlQuery,
   useLazyGetFileDownloadUrlQuery,
   useDeleteFileMutation,
+  useCreateAliasMutation,
+  useListAliasesQuery,
+  useGetAliasQuery,
+  useDeleteAliasMutation,
 } = artifactsApi
