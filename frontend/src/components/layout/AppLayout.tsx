@@ -11,6 +11,7 @@ import {
   LogoutOutlined,
   SettingOutlined,
   ThunderboltOutlined,
+  RocketOutlined,
 } from '@ant-design/icons'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { logout } from '@features/auth/authSlice'
@@ -51,6 +52,11 @@ function AppLayout() {
       label: 'Artifacts',
     },
     {
+      key: '/registry/models',
+      icon: <RocketOutlined />,
+      label: 'Model Registry',
+    },
+    {
       key: '/reports',
       icon: <FileTextOutlined />,
       label: 'Reports',
@@ -81,6 +87,17 @@ function AppLayout() {
 
   const handleMenuClick = ({ key }: { key: string }) => {
     navigate(key)
+  }
+
+  // Determine selected menu item based on current path
+  const getSelectedKey = () => {
+    const path = location.pathname
+    if (path.startsWith('/registry/models')) return '/registry/models'
+    if (path.startsWith('/sweeps')) return '/sweeps'
+    if (path.startsWith('/artifacts')) return '/artifacts'
+    if (path.startsWith('/runs')) return '/runs'
+    if (path.startsWith('/projects')) return '/projects'
+    return path
   }
 
   const handleUserMenuClick = ({ key }: { key: string }) => {
@@ -123,7 +140,7 @@ function AppLayout() {
         </div>
         <Menu
           mode="inline"
-          selectedKeys={[location.pathname]}
+          selectedKeys={[getSelectedKey()]}
           items={menuItems}
           onClick={handleMenuClick}
         />

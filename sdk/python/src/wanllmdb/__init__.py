@@ -11,6 +11,7 @@ from wanllmdb.run import Run
 from wanllmdb.config import Config
 from wanllmdb.sweep import sweep, agent, SweepController
 from wanllmdb.artifact import Artifact
+from wanllmdb.model_registry import ModelRegistry
 from wanllmdb import errors
 
 # Global state
@@ -62,6 +63,7 @@ __all__ = [
     "agent",
     "SweepController",
     "Artifact",
+    "ModelRegistry",
     "errors",
     "run",
     "config",

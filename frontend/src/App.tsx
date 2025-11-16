@@ -14,6 +14,8 @@ import ArtifactsPage from './pages/ArtifactsPage'
 import ArtifactDetailPage from './pages/ArtifactDetailPage'
 import SweepsPage from './pages/SweepsPage'
 import SweepDetailPage from './pages/SweepDetailPage'
+import ModelRegistryPage from './pages/ModelRegistryPage'
+import ModelDetailPage from './pages/ModelDetailPage'
 import './App.css'
 
 function App() {
@@ -40,6 +42,8 @@ function App() {
           <Route path="/sweeps" element={<SweepsPage />} />
           <Route path="/sweeps/:id" element={<SweepDetailPage />} />
           <Route path="/workspace/:id" element={<WorkspacePage />} />
+          <Route path="/registry/models" element={<ModelRegistryPage />} />
+          <Route path="/registry/models/:id" element={<ModelDetailPage />} />
         </Route>
 
         {/* Catch all */}
