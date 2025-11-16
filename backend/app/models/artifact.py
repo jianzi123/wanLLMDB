@@ -159,14 +159,19 @@ class ArtifactAlias(Base):
     An artifact can only have one version with a specific alias at a time.
     """
     __tablename__ = "artifact_aliases"
+    __table_args__ = (
+        # Unique constraint: one artifact can only have one version with a specific alias
+        # This prevents duplicate aliases for the same artifact
+        {'extend_existing': True}
+    )
 
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    artifact_id = Column(PGUUID(as_uuid=True), ForeignKey("artifacts.id"), nullable=False, index=True)
-    version_id = Column(PGUUID(as_uuid=True), ForeignKey("artifact_versions.id"), nullable=False, index=True)
+    artifact_id = Column(PGUUID(as_uuid=True), ForeignKey("artifacts.id", ondelete="CASCADE"), nullable=False, index=True)
+    version_id = Column(PGUUID(as_uuid=True), ForeignKey("artifact_versions.id", ondelete="CASCADE"), nullable=False, index=True)
     alias = Column(String(100), nullable=False, index=True)
 
     # User who created/updated this alias
-    created_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

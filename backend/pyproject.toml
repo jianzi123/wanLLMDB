@@ -20,6 +20,7 @@ python-multipart = "^0.0.6"
 redis = "^5.0.1"
 httpx = "^0.26.0"
 python-dotenv = "^1.0.0"
+slowapi = "^0.1.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.4"

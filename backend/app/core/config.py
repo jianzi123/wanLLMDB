@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import List
+from pydantic import field_validator, ValidationError
 
 
 class Settings(BaseSettings):
@@ -15,8 +16,10 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str
-    DATABASE_POOL_SIZE: int = 20
-    DATABASE_MAX_OVERFLOW: int = 10
+    DATABASE_POOL_SIZE: int = 50  # Increased from 20
+    DATABASE_MAX_OVERFLOW: int = 20  # Increased from 10
+    DATABASE_POOL_RECYCLE: int = 3600  # Recycle connections every hour
+    DATABASE_POOL_PRE_PING: bool = True  # Test connections before use
 
     # Redis
     REDIS_URL: str
@@ -30,15 +33,45 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
 
-    # MinIO / S3
-    MINIO_ENDPOINT: str = "localhost:9000"
-    MINIO_ACCESS_KEY: str = "minioadmin"
-    MINIO_SECRET_KEY: str = "minioadmin"
+    # MinIO / S3 - NO DEFAULT VALUES FOR SECURITY
+    MINIO_ENDPOINT: str
+    MINIO_ACCESS_KEY: str  # ✅ No default - must be configured
+    MINIO_SECRET_KEY: str  # ✅ No default - must be configured
     MINIO_BUCKET: str = "wanllmdb"
     MINIO_SECURE: bool = False
 
     # TimescaleDB
     TIMESCALE_URL: str
+
+    @field_validator('MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY')
+    @classmethod
+    def validate_not_default_credentials(cls, v: str, info) -> str:
+        """Prevent use of default/weak credentials"""
+        dangerous_values = {
+            'minioadmin', 'admin', 'password', 'root',
+            'minio', 'secret', '123456', 'changeme'
+        }
+        if v.lower() in dangerous_values:
+            raise ValueError(
+                f"{info.field_name} cannot be a default/weak value. "
+                "Please use a strong, unique credential."
+            )
+        if len(v) < 12:
+            raise ValueError(
+                f"{info.field_name} must be at least 12 characters long"
+            )
+        return v
+
+    @field_validator('SECRET_KEY')
+    @classmethod
+    def validate_secret_key_strength(cls, v: str) -> str:
+        """Ensure SECRET_KEY is strong enough"""
+        if len(v) < 32:
+            raise ValueError(
+                "SECRET_KEY must be at least 32 characters long. "
+                "Generate with: openssl rand -hex 32"
+            )
+        return v
 
     class Config:
         env_file = ".env"

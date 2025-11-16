@@ -6,13 +6,16 @@ from typing import Optional
 from uuid import UUID
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.repositories.artifact_repository import ArtifactRepository
 from app.services.storage_service import storage_service
+from app.core.security_utils import validate_reference_uri, sanitize_sql_search_input
 from app.schemas.artifact import (
     Artifact,
     ArtifactCreate,
@@ -38,6 +41,7 @@ from app.schemas.artifact import (
 )
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("", response_model=Artifact, status_code=status.HTTP_201_CREATED)
@@ -65,11 +69,14 @@ def list_artifacts(
     """List artifacts with filters and pagination."""
     repo = ArtifactRepository(db)
 
+    # Sanitize search input as defense-in-depth
+    sanitized_search = sanitize_sql_search_input(search) if search else None
+
     skip = (page - 1) * page_size
     artifacts, total = repo.list(
         project_id=project_id,
         artifact_type=artifact_type,
-        search=search,
+        search=sanitized_search,
         skip=skip,
         limit=page_size,
     )
@@ -247,9 +254,11 @@ def finalize_artifact_version(
 
 # File upload/download endpoints
 @router.post("/versions/{version_id}/files/upload-url", response_model=FileUploadResponse)
+@limiter.limit("10/minute")
 def get_file_upload_url(
+    request: Request,
     version_id: UUID,
-    request: FileUploadRequest,
+    file_request: FileUploadRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -283,7 +292,7 @@ def get_file_upload_url(
         artifact.project_id,
         artifact.id,
         version.id,
-        request.path,
+        file_request.path,
     )
 
     # Generate presigned upload URL
@@ -333,7 +342,9 @@ def add_file_to_version(
 
 
 @router.post("/versions/{version_id}/files/reference", response_model=ArtifactFile)
+@limiter.limit("10/minute")
 def add_file_reference(
+    request: Request,
     version_id: UUID,
     reference_in: FileReferenceRequest,
     db: Session = Depends(get_db),
@@ -358,6 +369,15 @@ def add_file_reference(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot add files to finalized version",
+        )
+
+    # Validate reference URI to prevent SSRF attacks
+    try:
+        validate_reference_uri(reference_in.reference_uri)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid reference URI: {str(e)}",
         )
 
     # Create file record with external reference

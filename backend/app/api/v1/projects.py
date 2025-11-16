@@ -44,7 +44,8 @@ async def list_projects(
     # Filter by current user if my_projects is True
     user_id = current_user.id if my_projects else None
 
-    projects, total = repo.list(
+    # Use optimized method that avoids N+1 queries
+    results, total = repo.list_with_stats(
         user_id=user_id,
         skip=skip,
         limit=page_size,
@@ -52,10 +53,12 @@ async def list_projects(
         visibility=visibility,
     )
 
-    # Add run count and last activity to each project
-    for project in projects:
-        project.run_count = repo.get_run_count(project.id)
-        project.last_activity = repo.get_last_activity(project.id)
+    # Extract projects and add stats
+    projects = []
+    for project, run_count, last_activity in results:
+        project.run_count = run_count
+        project.last_activity = last_activity
+        projects.append(project)
 
     total_pages = math.ceil(total / page_size)
 
@@ -82,16 +85,18 @@ async def get_project(
             detail="Project not found",
         )
 
-    project = repo.get(project_id)
-    if not project:
+    # Use optimized method that avoids N+1 queries
+    result = repo.get_with_stats(project_id)
+    if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found",
         )
 
-    # Add stats
-    project.run_count = repo.get_run_count(project.id)
-    project.last_activity = repo.get_last_activity(project.id)
+    # Unpack result and add stats to project
+    project, run_count, last_activity = result
+    project.run_count = run_count
+    project.last_activity = last_activity
 
     return project
 
