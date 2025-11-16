@@ -20,15 +20,15 @@ BLOCKED_HOSTS: Set[str] = {
     '169.254.169.253',  # AWS Time Sync Service
 }
 
-# Private IP ranges
+# Private IP ranges (IPv4 and IPv6)
 PRIVATE_IP_RANGES = [
     ipaddress.IPv4Network('10.0.0.0/8'),
     ipaddress.IPv4Network('172.16.0.0/12'),
     ipaddress.IPv4Network('192.168.0.0/16'),
     ipaddress.IPv4Network('127.0.0.0/8'),  # Loopback
     ipaddress.IPv4Network('169.254.0.0/16'),  # Link-local
-    ipaddress.IPv4Network('::1/128'),  # IPv6 loopback
-    ipaddress.IPv4Network('fc00::/7'),  # IPv6 private
+    ipaddress.IPv6Network('::1/128'),  # IPv6 loopback
+    ipaddress.IPv6Network('fc00::/7'),  # IPv6 private
 ]
 
 
@@ -73,7 +73,7 @@ def validate_reference_uri(uri: str) -> bool:
                     raise ValueError(
                         f"Cannot reference private IP address: {parsed.hostname}"
                     )
-        except ValueError:
+        except (ipaddress.AddressValueError, ipaddress.NetmaskValueError):
             # Not an IP address, hostname is OK
             pass
 
