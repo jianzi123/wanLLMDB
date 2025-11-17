@@ -25,6 +25,8 @@ slowapi = "^0.1.9"
 psutil = "^5.9.6"
 email-validator = "^2.3.0"
 minio = "^7.2.18"
+kubernetes = "^28.1.0"
+requests = "^2.31.0"
 
 [tool.poetry.group.dev.dependencies]
 optuna = "^3.6.0"

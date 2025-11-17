@@ -47,6 +47,18 @@ class Settings(BaseSettings):
     # TimescaleDB
     TIMESCALE_URL: str
 
+    # Cluster Job Executors
+    EXECUTOR_KUBERNETES_ENABLED: bool = False
+    EXECUTOR_KUBERNETES_KUBECONFIG: str = ""
+    EXECUTOR_KUBERNETES_NAMESPACE: str = "wanllmdb-jobs"
+    EXECUTOR_KUBERNETES_SERVICE_ACCOUNT: str = "default"
+
+    EXECUTOR_SLURM_ENABLED: bool = False
+    EXECUTOR_SLURM_REST_API_URL: str = ""
+    EXECUTOR_SLURM_AUTH_TOKEN: str = ""
+    EXECUTOR_SLURM_PARTITION: str = "compute"
+    EXECUTOR_SLURM_ACCOUNT: str = ""
+
     @field_validator('MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY')
     @classmethod
     def validate_not_default_credentials(cls, v: str, info) -> str:
