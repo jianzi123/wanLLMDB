@@ -31,7 +31,9 @@ from app.schemas.job_details import (
 from app.repositories.job_repository import JobRepository
 from app.repositories.project_repository import ProjectRepository
 from app.executors import ExecutorFactory
-from app.services.job_scheduler import JobScheduler, extract_resource_requirements
+from app.services.job_scheduler import extract_resource_requirements  # Keep for backward compat
+from app.scheduling.scheduler import create_scheduler
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +96,16 @@ def create_job(
 
     # Enqueue job using scheduler
     try:
-        scheduler = JobScheduler(db)
+        # Create scheduler with configured policy and quota provider
+        scheduler = create_scheduler(
+            db,
+            policy_type=settings.SCHEDULING_POLICY,
+            quota_provider_type=settings.QUOTA_PROVIDER,
+            k8s_namespace=settings.K8S_QUOTA_NAMESPACE,
+            slurm_api_url=settings.EXECUTOR_SLURM_REST_API_URL,
+            slurm_auth_token=settings.EXECUTOR_SLURM_AUTH_TOKEN,
+            slurm_account_prefix=settings.SLURM_ACCOUNT_PREFIX
+        )
 
         # Enqueue the job
         if not scheduler.enqueue_job(job):
@@ -103,7 +114,10 @@ def create_job(
         # Try to schedule immediately if quota available
         scheduler.schedule_pending_jobs(project_id=job.project_id)
 
-        logger.info(f"Job {job.id} created and enqueued successfully")
+        logger.info(
+            f"Job {job.id} created and enqueued successfully using "
+            f"policy={settings.SCHEDULING_POLICY}, quota_provider={settings.QUOTA_PROVIDER}"
+        )
 
     except Exception as e:
         # Update job status to failed
