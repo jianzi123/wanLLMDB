@@ -255,7 +255,7 @@ class JobScheduler:
 
     def sync_job_status(self, job: Job) -> bool:
         """
-        Sync job status from executor.
+        Sync job status from executor and update associated Run.
 
         Returns True if status changed.
         """
@@ -280,6 +280,9 @@ class JobScheduler:
                     # Release quota
                     self.on_job_completed(job)
 
+                # Sync associated Run status if exists
+                self._sync_run_status(job, current_status)
+
                 self.db.commit()
                 logger.info(f"Job {job.id} status updated: {old_status} -> {current_status}")
                 return True
@@ -289,6 +292,51 @@ class JobScheduler:
         except Exception as e:
             logger.error(f"Failed to sync job {job.id} status: {e}")
             return False
+
+    def _sync_run_status(self, job: Job, job_status: JobStatusEnum) -> None:
+        """
+        Sync Run status based on Job status.
+
+        Args:
+            job: The job whose run should be synced
+            job_status: Current job status
+        """
+        if not job.run_id:
+            return  # No associated run
+
+        try:
+            from app.models.run import Run, RunStateEnum
+
+            run = self.db.query(Run).filter(Run.id == job.run_id).first()
+            if not run:
+                logger.warning(f"Run {job.run_id} not found for job {job.id}")
+                return
+
+            # Map Job status to Run state
+            status_mapping = {
+                JobStatusEnum.PENDING: None,  # Don't update run when job is pending
+                JobStatusEnum.QUEUED: None,   # Don't update run when job is queued
+                JobStatusEnum.RUNNING: RunStateEnum.RUNNING,
+                JobStatusEnum.SUCCEEDED: RunStateEnum.FINISHED,
+                JobStatusEnum.FAILED: RunStateEnum.CRASHED,
+                JobStatusEnum.CANCELLED: RunStateEnum.KILLED,
+                JobStatusEnum.TIMEOUT: RunStateEnum.CRASHED,
+            }
+
+            new_run_state = status_mapping.get(job_status)
+            if new_run_state and run.state != new_run_state:
+                old_state = run.state
+                run.state = new_run_state
+
+                # Update finished_at timestamp for terminal states
+                if new_run_state in [RunStateEnum.FINISHED, RunStateEnum.CRASHED, RunStateEnum.KILLED]:
+                    if not run.finished_at:
+                        run.finished_at = datetime.utcnow()
+
+                logger.info(f"Run {run.id} state synced: {old_state} -> {new_run_state} (from job {job.id})")
+
+        except Exception as e:
+            logger.error(f"Failed to sync run status for job {job.id}: {e}")
 
     def sync_all_active_jobs(self) -> int:
         """

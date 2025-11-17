@@ -197,7 +197,7 @@ class Job(Base):
     # Relationships
     project = relationship("Project", backref="jobs")
     user = relationship("User", backref="jobs")
-    run = relationship("Run", backref="jobs", foreign_keys=[run_id])
+    run = relationship("Run", back_populates="jobs", foreign_keys=[run_id])
     queue = relationship("JobQueue", backref="jobs", foreign_keys=[queue_id])
 
     def __repr__(self):

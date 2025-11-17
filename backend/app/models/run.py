@@ -54,3 +54,4 @@ class Run(Base):
     # Relationships
     files = relationship("RunFile", back_populates="run", cascade="all, delete-orphan")
     logs = relationship("RunLog", back_populates="run", cascade="all, delete-orphan")
+    jobs = relationship("Job", back_populates="run", foreign_keys="[Job.run_id]")  # Jobs associated with this run

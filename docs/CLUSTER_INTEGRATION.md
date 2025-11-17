@@ -13,6 +13,43 @@ Three job types are supported:
 2. **Inference**: Model serving/inference jobs
 3. **Workflow**: Multi-step DAG-based workflows
 
+## Architecture: Run vs Job
+
+**Understanding the difference:**
+
+- **Run**: Experiment tracking entity (SDK-based)
+  - Created by WanLLMDB SDK in your training code
+  - Tracks metrics, logs, artifacts, hyperparameters
+  - Managed through `wandb.init()` or similar SDK calls
+  - States: `RUNNING`, `FINISHED`, `CRASHED`, `KILLED`
+
+- **Job**: Cluster execution entity (scheduler-based)
+  - Created through API/UI to submit work to K8s/Slurm
+  - Manages resource allocation, queuing, quota enforcement
+  - Executed on cluster infrastructure
+  - States: `PENDING`, `QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `TIMEOUT`
+
+**Relationship:**
+- A Job can optionally be linked to a Run via `run_id`
+- When linked, the scheduler automatically syncs Job status → Run state
+- This allows cluster job execution to update experiment tracking automatically
+
+**Lifecycle Sync (Job → Run):**
+```
+Job Status         →  Run State
+-----------------------------------------
+RUNNING            →  RUNNING
+SUCCEEDED          →  FINISHED
+FAILED/TIMEOUT     →  CRASHED
+CANCELLED          →  KILLED
+```
+
+**Example workflow:**
+1. Create a Run via SDK: `run = wandb.init(project="my-project")`
+2. Submit a training Job linked to the Run: `job.run_id = run.id`
+3. Job scheduler monitors job execution on K8s/Slurm
+4. When Job completes, Run state is automatically updated to FINISHED/CRASHED
+
 ## Configuration
 
 ### Kubernetes Executor
