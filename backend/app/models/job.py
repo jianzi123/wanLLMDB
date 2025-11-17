@@ -59,6 +59,10 @@ class Job(Base):
     run_id = Column(UUID(as_uuid=True), ForeignKey("runs.id"), nullable=True, index=True)  # Link to experiment run
     queue_id = Column(UUID(as_uuid=True), ForeignKey("job_queues.id"), nullable=True, index=True)  # Queue assignment
 
+    # VDC and Cluster (for multi-cluster scheduling)
+    vdc_id = Column(UUID(as_uuid=True), ForeignKey("vdcs.id"), nullable=True, index=True)  # Target VDC
+    cluster_id = Column(UUID(as_uuid=True), ForeignKey("clusters.id"), nullable=True, index=True)  # Assigned cluster
+
     # Job description
     description = Column(Text, nullable=True)
     tags = Column(JSON, default=list, nullable=False)
@@ -67,6 +71,10 @@ class Job(Base):
     cpu_request = Column(Float, nullable=False, default=1.0)  # CPU cores
     memory_request = Column(Float, nullable=False, default=2.0)  # GB
     gpu_request = Column(Integer, nullable=False, default=0)  # GPU cards
+
+    # Cluster affinity (for VDC multi-cluster scheduling)
+    preferred_cluster_ids = Column(JSON, default=list, nullable=False)  # Preferred clusters (UUIDs)
+    required_labels = Column(JSON, default=dict, nullable=False)  # Required cluster labels
 
     # Queue management
     queue_position = Column(Integer, nullable=True)  # Position in queue
@@ -199,6 +207,8 @@ class Job(Base):
     user = relationship("User", backref="jobs")
     run = relationship("Run", back_populates="jobs", foreign_keys=[run_id])
     queue = relationship("JobQueue", backref="jobs", foreign_keys=[queue_id])
+    vdc = relationship("VDC", backref="jobs", foreign_keys=[vdc_id])
+    cluster = relationship("Cluster", back_populates="jobs", foreign_keys=[cluster_id])
 
     def __repr__(self):
         return f"<Job(id={self.id}, name={self.name}, type={self.job_type}, status={self.status})>"

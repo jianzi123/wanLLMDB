@@ -43,6 +43,11 @@ class JobCreate(BaseModel):
     tags: List[str] = Field(default_factory=list, description="Job tags")
     executor_config: Dict[str, Any] = Field(..., description="Executor-specific configuration")
 
+    # VDC multi-cluster scheduling (optional)
+    vdc_id: Optional[UUID4] = Field(None, description="Target VDC for multi-cluster scheduling")
+    preferred_cluster_ids: List[str] = Field(default_factory=list, description="Preferred cluster UUIDs")
+    required_labels: Dict[str, Any] = Field(default_factory=dict, description="Required cluster labels")
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -114,6 +119,12 @@ class JobResponse(BaseModel):
     outputs: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
+
+    # VDC fields
+    vdc_id: Optional[UUID4]
+    cluster_id: Optional[UUID4]
+    preferred_cluster_ids: List[str]
+    required_labels: Dict[str, Any]
 
     class Config:
         from_attributes = True
