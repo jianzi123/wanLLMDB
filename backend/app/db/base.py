@@ -7,3 +7,7 @@ from app.models.run_config import RunConfig  # noqa
 from app.models.run_summary import RunSummary  # noqa
 from app.models.artifact import Artifact, ArtifactVersion, ArtifactFile, ArtifactDownload  # noqa
 from app.models.sweep import Sweep, SweepRun  # noqa
+from app.models.audit_log import AuditLog  # noqa
+from app.models.model_registry import RegisteredModel, ModelVersion, ModelVersionTransition  # noqa
+from app.models.run_file import RunFile  # noqa
+from app.models.run_log import RunLog  # noqa

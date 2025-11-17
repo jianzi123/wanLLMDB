@@ -1,7 +1,7 @@
 """Add performance indexes
 
-Revision ID: 008
-Revises: 007
+Revision ID: 008_add_performance_indexes
+Revises: 007_add_file_references
 Create Date: 2025-11-16
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '008'
-down_revision = '007'
+revision = '008_add_performance_indexes'
+down_revision = '007_add_file_references'
 branch_labels = None
 depends_on = None
 

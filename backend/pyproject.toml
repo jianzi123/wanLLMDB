@@ -16,6 +16,7 @@ alembic = "^1.13.1"
 psycopg2-binary = "^2.9.9"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+bcrypt = "~3.2.2"
 python-multipart = "^0.0.6"
 redis = "^5.0.1"
 httpx = "^0.26.0"
@@ -26,6 +27,7 @@ email-validator = "^2.3.0"
 minio = "^7.2.18"
 
 [tool.poetry.group.dev.dependencies]
+optuna = "^3.6.0"
 pytest = "^7.4.4"
 pytest-asyncio = "^0.23.3"
 pytest-cov = "^4.1.0"

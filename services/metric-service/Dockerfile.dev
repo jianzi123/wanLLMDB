@@ -5,11 +5,11 @@ WORKDIR /app
 # Install development dependencies
 RUN apk add --no-cache git
 
-# Install air for hot reload
-RUN go install github.com/cosmtrek/air@latest
+# Install air for hot reload (pin to a version compatible with Go 1.21)
+RUN go install github.com/cosmtrek/air@v1.49.0
 
-# Copy go mod files
-COPY go.mod go.sum ./
+# Copy go.mod and download dependencies (go.sum will be generated in the image)
+COPY go.mod ./
 RUN go mod download
 
 # Copy source code

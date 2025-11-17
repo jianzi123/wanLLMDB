@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Card, Table, Select, Space, Button, Row, Col, Statistic, Empty, Tag } from 'antd'
-import { CompareOutlined, ReloadOutlined } from '@ant-design/icons'
+import { ReloadOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { useListRunsQuery } from '@/services/runsApi'
 import { useGetRunMetricsQuery } from '@/services/metricsApi'
@@ -167,9 +167,7 @@ function RunComparePage() {
         <Row justify="space-between" align="middle">
           <Col>
             <Space direction="vertical" size={0}>
-              <h2 style={{ margin: 0 }}>
-                <CompareOutlined /> Run Comparison
-              </h2>
+              <h2 style={{ margin: 0 }}>Run Comparison</h2>
               <span style={{ color: '#999' }}>
                 Compare metrics and configurations across multiple runs
               </span>

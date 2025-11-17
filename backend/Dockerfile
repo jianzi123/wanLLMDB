@@ -2,7 +2,8 @@
 # Optimized for production with security best practices
 
 # Stage 1: Builder
-FROM python:3.11-slim as builder
+#FROM python:3.11-slim as builder
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/python:3.11-slim as builder
 
 # Install system dependencies for building Python packages
 RUN apt-get update && apt-get install -y \
@@ -27,7 +28,8 @@ RUN poetry config virtualenvs.create false \
     && poetry install --no-dev --no-root --no-interaction --no-ansi
 
 # Stage 2: Runtime
-FROM python:3.11-slim
+#FROM python:3.11-slim
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/python:3.11-slim
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y \

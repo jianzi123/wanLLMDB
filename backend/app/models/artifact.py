@@ -31,8 +31,8 @@ class Artifact(Base):
     project_id = Column(PGUUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
     created_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
-    # Metadata
-    metadata = Column(JSON, nullable=True, default=dict)
+    # Metadata (avoid using reserved attribute name "metadata" in SQLAlchemy declarative)
+    metadata_json = Column("metadata", JSON, nullable=True, default=dict)
     tags = Column(JSON, nullable=True, default=list)
 
     # Versioning
@@ -72,8 +72,8 @@ class ArtifactVersion(Base):
     # Storage
     storage_path = Column(String(500), nullable=False)  # MinIO path prefix
 
-    # Metadata
-    metadata = Column(JSON, nullable=True, default=dict)
+    # Metadata (avoid reserved attribute name "metadata")
+    metadata_json = Column("metadata", JSON, nullable=True, default=dict)
     digest = Column(String(64), nullable=True)  # Hash of all files for integrity
 
     # Association with run (optional)

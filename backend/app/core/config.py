@@ -50,7 +50,12 @@ class Settings(BaseSettings):
     @field_validator('MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY')
     @classmethod
     def validate_not_default_credentials(cls, v: str, info) -> str:
-        """Prevent use of default/weak credentials"""
+        """Prevent use of default/weak credentials (except in development)"""
+        # Allow default credentials in development mode (DEBUG=True)
+        debug_mode = info.data.get('DEBUG', False)
+        if debug_mode:
+            return v
+        
         dangerous_values = {
             'minioadmin', 'admin', 'password', 'root',
             'minio', 'secret', '123456', 'changeme'

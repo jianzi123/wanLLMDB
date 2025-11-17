@@ -1,7 +1,7 @@
 """Add audit logs table for security and compliance tracking
 
-Revision ID: 009
-Revises: 008
+Revision ID: 009_add_audit_logs
+Revises: 008_add_performance_indexes
 Create Date: 2025-11-16 14:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '009'
-down_revision = '008'
+revision = '009_add_audit_logs'
+down_revision = '008_add_performance_indexes'
 branch_labels = None
 depends_on = None
 

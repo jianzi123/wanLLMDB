@@ -166,6 +166,16 @@ def validate_password_strength(password: str) -> bool:
 
     if len(password) < 12:
         raise ValueError("Password must be at least 12 characters long")
+    
+    # Bcrypt has a 72-byte limit, warn if password is too long
+    # For UTF-8, most characters are 1-3 bytes, so we use 60 characters as a safe limit
+    if len(password.encode('utf-8')) > 72:
+        raise ValueError("Password cannot exceed 72 bytes. Please use a shorter password.")
+    
+    # Warn if password is close to the limit (60 chars is a safe limit for most UTF-8)
+    if len(password) > 60:
+        # Still allow it, but truncate in security.py when hashing
+        pass
 
     if not re.search(r'[A-Z]', password):
         raise ValueError("Password must contain at least one uppercase letter")

@@ -68,7 +68,7 @@ class ModelVersion(Base):
     # Metadata
     metrics = Column(JSON, default=dict, nullable=False)  # Key metrics for this model version
     tags = Column(JSON, default=list, nullable=False)
-    metadata = Column(JSON, default=dict, nullable=False)  # Additional metadata
+    metadata_json = Column("metadata", JSON, default=dict, nullable=False)  # Additional metadata
 
     # Approval/review info
     approved_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True)

@@ -1,4 +1,6 @@
-FROM python:3.11-slim
+#FROM python:3.11-slim
+#FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/python:3.11-slim-linuxarm64
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/python:3.11-slim
 
 WORKDIR /app
 
@@ -14,9 +16,9 @@ RUN pip install poetry
 # Copy dependency files
 COPY pyproject.toml ./
 
-# Install dependencies
+# Install dependencies (without installing the current project to avoid README/package metadata issues)
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+    && poetry install --no-interaction --no-ansi --no-root
 
 # Copy application code
 COPY . .

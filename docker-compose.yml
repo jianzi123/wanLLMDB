@@ -3,7 +3,8 @@ version: '3.8'
 services:
   # PostgreSQL database
   postgres:
-    image: postgres:15-alpine
+    #image: postgres:15-alpine
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/postgres:15-alpine
     container_name: wanllmdb-postgres
     environment:
       POSTGRES_USER: wanllmdb
@@ -24,7 +25,8 @@ services:
 
   # TimescaleDB for metrics
   timescaledb:
-    image: timescale/timescaledb:latest-pg15
+    #image: timescale/timescaledb:latest-pg15
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/timescale/timescaledb:latest-pg15
     container_name: wanllmdb-timescaledb
     environment:
       POSTGRES_USER: wanllmdb
@@ -45,7 +47,8 @@ services:
 
   # Redis cache
   redis:
-    image: redis:7-alpine
+    #image: redis:7-alpine
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:7-alpine
     container_name: wanllmdb-redis
     ports:
       - "6379:6379"
@@ -62,7 +65,8 @@ services:
 
   # MinIO object storage
   minio:
-    image: minio/minio:latest
+    #image: minio/minio:latest
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/quay.io/minio/minio:latest
     container_name: wanllmdb-minio
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -92,8 +96,10 @@ services:
       TIMESCALE_URL: postgresql://wanllmdb:password@timescaledb:5432/wanllmdb_metrics
       REDIS_URL: redis://redis:6379/0
       MINIO_ENDPOINT: minio:9000
+      # Match MinIO service credentials (allowed in development mode)
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
+      SECRET_KEY: dev-secret-key-please-change-0123456789
       DEBUG: "True"
     ports:
       - "8000:8000"
@@ -141,8 +147,12 @@ services:
     container_name: wanllmdb-frontend
     environment:
       VITE_API_URL: http://localhost:8000
+      # Proxy configuration (auto-detected, but can be overridden)
+      DOCKER: "true"
+      DOCKER_SERVICE_NAME: backend
+      DOCKER_SERVICE_PORT: "8000"
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules

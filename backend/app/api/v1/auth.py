@@ -28,6 +28,12 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    if not token:
+        print("DEBUG: get_current_user - No token provided")
+        raise credentials_exception
+    
+    print(f"DEBUG: get_current_user - Token received: {token[:20]}...")
+
     # Check if token is blacklisted (revoked)
     if security.is_token_blacklisted(token):
         raise HTTPException(

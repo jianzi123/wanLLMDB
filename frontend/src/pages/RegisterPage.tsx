@@ -16,12 +16,39 @@ function RegisterPage() {
         username: values.username,
         email: values.email,
         password: values.password,
+        fullName: values.fullName,
       }).unwrap()
 
       message.success('Registration successful! Please log in.')
       navigate('/login')
     } catch (error: any) {
-      message.error(error?.data?.detail || 'Registration failed. Please try again.')
+      // Extract detailed error message from Pydantic validation errors
+      let errorMessage = 'Registration failed. Please try again.'
+      
+      console.error('Registration error:', error)
+      
+      if (error?.data) {
+        if (typeof error.data.detail === 'string') {
+          // Single error message
+          errorMessage = error.data.detail
+        } else if (Array.isArray(error.data.detail)) {
+          // Pydantic validation errors (array format)
+          const errors = error.data.detail.map((err: any) => {
+            const field = err.loc?.join('.') || 'field'
+            const msg = err.msg || 'Invalid value'
+            return `${field}: ${msg}`
+          }).join('; ')
+          errorMessage = errors || errorMessage
+        } else if (error.data.detail) {
+          // Try to stringify if it's an object
+          errorMessage = JSON.stringify(error.data.detail)
+        }
+      } else if (error?.error) {
+        // RTK Query error format
+        errorMessage = error.error || errorMessage
+      }
+      
+      message.error(errorMessage)
     }
   }
 
@@ -52,11 +79,39 @@ function RegisterPage() {
         </Form.Item>
 
         <Form.Item
+          name="fullName"
+          rules={[
+            { required: false },
+            { max: 255, message: 'Full name must be less than 255 characters!' },
+          ]}
+        >
+          <Input prefix={<UserOutlined />} placeholder="Full Name (Optional)" />
+        </Form.Item>
+
+        <Form.Item
           name="password"
           rules={[
             { required: true, message: 'Please input your password!' },
-            { min: 8, message: 'Password must be at least 8 characters!' },
+            { min: 12, message: 'Password must be at least 12 characters!' },
+            { max: 60, message: 'Password cannot exceed 60 characters!' },
+            {
+              pattern: /[A-Z]/,
+              message: 'Password must contain at least one uppercase letter!',
+            },
+            {
+              pattern: /[a-z]/,
+              message: 'Password must contain at least one lowercase letter!',
+            },
+            {
+              pattern: /\d/,
+              message: 'Password must contain at least one number!',
+            },
+            {
+              pattern: /[!@#$%^&*(),.?":{}|<>]/,
+              message: 'Password must contain at least one special character!',
+            },
           ]}
+          help="Password must be 12-60 characters with uppercase, lowercase, number, and special character"
         >
           <Input.Password prefix={<LockOutlined />} placeholder="Password" />
         </Form.Item>

@@ -1,10 +1,18 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, Navigate } from 'react-router-dom'
 import { Layout, Typography } from 'antd'
+import { useAppSelector } from '@/store/hooks'
 
 const { Content } = Layout
 const { Title } = Typography
 
 function AuthLayout() {
+  const tokens = useAppSelector(state => state.auth.tokens)
+
+  // Redirect to dashboard if already logged in
+  if (tokens && tokens.accessToken) {
+    return <Navigate to="/dashboard" replace />
+  }
+
   return (
     <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
       <Content

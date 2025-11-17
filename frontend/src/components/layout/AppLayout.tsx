@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { Layout, Menu, Avatar, Dropdown, Space, Typography } from 'antd'
 import type { MenuProps } from 'antd'
 import {
@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
 import { logout } from '@features/auth/authSlice'
+import { useEffect } from 'react'
 
 const { Header, Sider, Content } = Layout
 const { Text } = Typography
@@ -24,6 +25,14 @@ function AppLayout() {
   const location = useLocation()
   const dispatch = useAppDispatch()
   const user = useAppSelector(state => state.auth.user)
+  const tokens = useAppSelector(state => state.auth.tokens)
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!tokens || !tokens.accessToken) {
+      navigate('/login', { replace: true, state: { from: location.pathname } })
+    }
+  }, [tokens, navigate, location])
 
   const menuItems: MenuProps['items'] = [
     {
@@ -109,6 +118,11 @@ function AppLayout() {
     } else if (key === 'settings') {
       navigate('/settings')
     }
+  }
+
+  // Show nothing while checking authentication
+  if (!tokens || !tokens.accessToken) {
+    return null
   }
 
   return (

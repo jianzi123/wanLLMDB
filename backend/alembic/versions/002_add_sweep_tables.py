@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSON
 
 # revision identifiers, used by Alembic.
 revision = '002_add_sweep_tables'
-down_revision = '001_add_artifact_tables'
+down_revision = '001_artifact_tables'
 branch_labels = None
 depends_on = None
 
