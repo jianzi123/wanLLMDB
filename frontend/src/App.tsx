@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import ProjectsPage from './pages/ProjectsPage'
+import ProjectDetailPage from './pages/ProjectDetailPage'
 import RunsPage from './pages/RunsPage'
 import RunDetailPage from './pages/RunDetailPage'
 import WorkspacePage from './pages/WorkspacePage'
@@ -16,6 +17,8 @@ import SweepsPage from './pages/SweepsPage'
 import SweepDetailPage from './pages/SweepDetailPage'
 import ModelRegistryPage from './pages/ModelRegistryPage'
 import ModelDetailPage from './pages/ModelDetailPage'
+import ProfilePage from './pages/ProfilePage'
+import SettingsPage from './pages/SettingsPage'
 import './App.css'
 
 function App() {
@@ -33,7 +36,7 @@ function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:id" element={<div>Project Detail (TODO)</div>} />
+          <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/runs" element={<RunsPage />} />
           <Route path="/runs/:id" element={<RunDetailPage />} />
           <Route path="/runs/compare" element={<RunComparePage />} />
@@ -44,6 +47,8 @@ function App() {
           <Route path="/workspace/:id" element={<WorkspacePage />} />
           <Route path="/registry/models" element={<ModelRegistryPage />} />
           <Route path="/registry/models/:id" element={<ModelDetailPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
 
         {/* Catch all */}
