@@ -47,6 +47,29 @@ class Settings(BaseSettings):
     # TimescaleDB
     TIMESCALE_URL: str
 
+    # Cluster Job Executors
+    EXECUTOR_KUBERNETES_ENABLED: bool = False
+    EXECUTOR_KUBERNETES_KUBECONFIG: str = ""
+    EXECUTOR_KUBERNETES_NAMESPACE: str = "wanllmdb-jobs"
+    EXECUTOR_KUBERNETES_SERVICE_ACCOUNT: str = "default"
+
+    EXECUTOR_SLURM_ENABLED: bool = False
+    EXECUTOR_SLURM_REST_API_URL: str = ""
+    EXECUTOR_SLURM_AUTH_TOKEN: str = ""
+    EXECUTOR_SLURM_PARTITION: str = "compute"
+    EXECUTOR_SLURM_ACCOUNT: str = ""
+
+    # Job Scheduling Configuration
+    SCHEDULING_POLICY: str = "fifo"  # Options: fifo, priority, fairshare
+    QUOTA_PROVIDER: str = "local"  # Options: local, k8s, slurm
+
+    # K8s Quota Provider Settings
+    K8S_QUOTA_NAMESPACE: str = "wanllmdb-jobs"
+    K8S_CREATE_RESOURCE_QUOTAS: bool = False  # Auto-create K8s ResourceQuota objects
+
+    # Slurm Quota Provider Settings
+    SLURM_ACCOUNT_PREFIX: str = "project-"
+
     @field_validator('MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY')
     @classmethod
     def validate_not_default_credentials(cls, v: str, info) -> str:
