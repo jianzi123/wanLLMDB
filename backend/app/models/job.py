@@ -2,7 +2,7 @@
 Job model for managing training, inference, and workflow jobs on K8s/Slurm clusters.
 """
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Enum, JSON, Integer
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Enum, JSON, Integer, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -57,10 +57,20 @@ class Job(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     run_id = Column(UUID(as_uuid=True), ForeignKey("runs.id"), nullable=True, index=True)  # Link to experiment run
+    queue_id = Column(UUID(as_uuid=True), ForeignKey("job_queues.id"), nullable=True, index=True)  # Queue assignment
 
     # Job description
     description = Column(Text, nullable=True)
     tags = Column(JSON, default=list, nullable=False)
+
+    # Resource requirements (for quota management)
+    cpu_request = Column(Float, nullable=False, default=1.0)  # CPU cores
+    memory_request = Column(Float, nullable=False, default=2.0)  # GB
+    gpu_request = Column(Integer, nullable=False, default=0)  # GPU cards
+
+    # Queue management
+    queue_position = Column(Integer, nullable=True)  # Position in queue
+    enqueued_at = Column(DateTime(timezone=True), nullable=True)  # When job was enqueued
 
     # Executor-specific configuration
     executor_config = Column(JSON, nullable=False)
@@ -188,6 +198,7 @@ class Job(Base):
     project = relationship("Project", backref="jobs")
     user = relationship("User", backref="jobs")
     run = relationship("Run", backref="jobs", foreign_keys=[run_id])
+    queue = relationship("JobQueue", backref="jobs", foreign_keys=[queue_id])
 
     def __repr__(self):
         return f"<Job(id={self.id}, name={self.name}, type={self.job_type}, status={self.status})>"

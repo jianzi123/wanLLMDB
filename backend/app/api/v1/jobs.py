@@ -22,9 +22,16 @@ from app.schemas.job import (
     JobType,
     JobExecutor,
 )
+from app.schemas.job_details import (
+    JobDetailedResponse,
+    TrainingJobDetails,
+    InferenceJobDetails,
+    WorkflowJobDetails,
+)
 from app.repositories.job_repository import JobRepository
 from app.repositories.project_repository import ProjectRepository
 from app.executors import ExecutorFactory
+from app.services.job_scheduler import JobScheduler, extract_resource_requirements
 
 logger = logging.getLogger(__name__)
 
@@ -74,30 +81,40 @@ def create_job(
     job_dict["user_id"] = current_user.id
     job_dict["status"] = JobStatusEnum.PENDING
 
-    job = job_repo.create(job_dict)
+    # Extract resource requirements from config
+    job = job_repo.create(job_dict)  # Create temporarily to parse config
+    cpu, memory, gpu = extract_resource_requirements(job)
 
-    # Submit job to executor
+    # Update job with resource requirements
+    job.cpu_request = cpu
+    job.memory_request = memory
+    job.gpu_request = gpu
+    db.commit()
+    db.refresh(job)
+
+    # Enqueue job using scheduler
     try:
-        executor = ExecutorFactory.get_executor(executor_type)
-        external_id = executor.submit_job(job)
+        scheduler = JobScheduler(db)
 
-        # Update job with external ID
-        job_repo.update(job, {
-            "external_id": external_id,
-            "namespace": job_data.executor_config.get("namespace", executor.default_namespace if hasattr(executor, 'default_namespace') else None),
-            "status": JobStatusEnum.QUEUED,
-        })
+        # Enqueue the job
+        if not scheduler.enqueue_job(job):
+            raise HTTPException(status_code=500, detail="Failed to enqueue job")
 
-        logger.info(f"Job {job.id} submitted successfully with external ID: {external_id}")
+        # Try to schedule immediately if quota available
+        scheduler.schedule_pending_jobs(project_id=job.project_id)
+
+        logger.info(f"Job {job.id} created and enqueued successfully")
+
     except Exception as e:
         # Update job status to failed
         job_repo.update(job, {
             "status": JobStatusEnum.FAILED,
-            "error_message": f"Failed to submit job: {str(e)}",
+            "error_message": f"Failed to enqueue job: {str(e)}",
         })
-        logger.error(f"Failed to submit job {job.id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to submit job: {str(e)}")
+        logger.error(f"Failed to enqueue job {job.id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to enqueue job: {str(e)}")
 
+    db.refresh(job)
     return JobResponse.model_validate(job)
 
 
@@ -384,3 +401,201 @@ def delete_job(
 
     job_repo.delete(job)
     logger.info(f"Job {job.id} deleted")
+"""
+Job detailed information endpoint.
+This will be appended to jobs.py
+"""
+
+
+@router.get("/{job_id}/details", response_model=JobDetailedResponse)
+def get_job_details(
+    job_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> JobDetailedResponse:
+    """
+    Get detailed job information.
+
+    Returns type-specific details based on job type:
+    - Training jobs: epoch info, learning rate, model paths
+    - Inference jobs: replicas, endpoints, model info
+    - Workflow jobs: DAG structure, step details
+    """
+    from app.repositories.job_queue_repository import JobQueueRepository
+
+    job_repo = JobRepository(db)
+    queue_repo = JobQueueRepository(db)
+
+    job = job_repo.get_by_id(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Check permission
+    if job.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this job")
+
+    # Build base response
+    response_data = {
+        **job.__dict__,
+        "queue_name": None,
+        "training_details": None,
+        "inference_details": None,
+        "workflow_details": None,
+        "progress_percentage": None,
+        "current_epoch": None,
+        "average_loss": None,
+        "cpu_usage": None,
+        "memory_usage": None,
+        "gpu_usage": None,
+    }
+
+    # Add queue information
+    if job.queue_id:
+        queue = queue_repo.get_by_id(job.queue_id)
+        if queue:
+            response_data["queue_name"] = queue.name
+
+    # Parse executor config for type-specific details
+    config = job.executor_config
+
+    if job.job_type == JobTypeEnum.TRAINING:
+        # Extract training-specific details
+        training_details = {
+            "image": config.get("image"),
+            "command": config.get("command"),
+            "args": config.get("args"),
+            "cpu_cores": job.cpu_request,
+            "memory_gb": job.memory_request,
+            "gpu_count": job.gpu_request,
+            "epochs": None,
+            "batch_size": None,
+            "learning_rate": None,
+            "num_nodes": config.get("nodes", 1),
+            "distributed": config.get("nodes", 1) > 1,
+            "model_output_path": None,
+            "checkpoint_path": None,
+        }
+
+        # Try to extract hyperparameters from args
+        args = config.get("args", [])
+        for i, arg in enumerate(args):
+            if arg == "--epochs" and i + 1 < len(args):
+                try:
+                    training_details["epochs"] = int(args[i + 1])
+                except:
+                    pass
+            elif arg == "--batch-size" and i + 1 < len(args):
+                try:
+                    training_details["batch_size"] = int(args[i + 1])
+                except:
+                    pass
+            elif arg in ["--lr", "--learning-rate"] and i + 1 < len(args):
+                try:
+                    training_details["learning_rate"] = float(args[i + 1])
+                except:
+                    pass
+
+        # Check metrics for progress
+        if job.metrics and "current_epoch" in job.metrics:
+            response_data["current_epoch"] = job.metrics["current_epoch"]
+            if training_details["epochs"]:
+                response_data["progress_percentage"] = (
+                    job.metrics["current_epoch"] / training_details["epochs"] * 100
+                )
+
+        if job.metrics and "average_loss" in job.metrics:
+            response_data["average_loss"] = job.metrics["average_loss"]
+
+        response_data["training_details"] = TrainingJobDetails(**training_details)
+
+    elif job.job_type == JobTypeEnum.INFERENCE:
+        # Extract inference-specific details
+        inference_details = {
+            "image": config.get("image"),
+            "replicas": config.get("replicas", 1),
+            "port": config.get("port", 8080),
+            "cpu_cores": job.cpu_request,
+            "memory_gb": job.memory_request,
+            "gpu_count": job.gpu_request,
+            "model_name": None,
+            "model_version": None,
+            "model_path": None,
+            "service_url": None,
+            "health_endpoint": None,
+            "max_batch_size": None,
+            "timeout_seconds": None,
+        }
+
+        # Extract from env
+        env = config.get("env", [])
+        for env_var in env:
+            if env_var.get("name") == "MODEL_PATH":
+                inference_details["model_path"] = env_var.get("value")
+            elif env_var.get("name") == "MODEL_NAME":
+                inference_details["model_name"] = env_var.get("value")
+            elif env_var.get("name") == "MODEL_VERSION":
+                inference_details["model_version"] = env_var.get("value")
+
+        # Service URL (if available)
+        if job.external_id and job.status == JobStatusEnum.RUNNING:
+            if job.executor == JobExecutorEnum.KUBERNETES:
+                service_config = config.get("service", {})
+                if service_config.get("type") == "LoadBalancer":
+                    # Would need to query K8s to get actual external IP
+                    inference_details["service_url"] = f"http://{job.external_id}.{job.namespace}.svc.cluster.local"
+
+        response_data["inference_details"] = InferenceJobDetails(**inference_details)
+
+    elif job.job_type == JobTypeEnum.WORKFLOW:
+        # Extract workflow-specific details
+        templates = config.get("templates", [])
+        entrypoint = config.get("entrypoint", "main")
+
+        # Find DAG structure
+        dag_structure = {}
+        total_steps = 0
+        steps = []
+
+        for template in templates:
+            if template.get("name") == entrypoint and "dag" in template:
+                dag_structure = template["dag"]
+                if "tasks" in dag_structure:
+                    total_steps = len(dag_structure["tasks"])
+                    steps = [
+                        {
+                            "name": task.get("name"),
+                            "template": task.get("template"),
+                            "dependencies": task.get("dependencies", []),
+                            "status": "pending",  # Would need to track this
+                        }
+                        for task in dag_structure["tasks"]
+                    ]
+
+        workflow_details = {
+            "entrypoint": entrypoint,
+            "total_steps": total_steps,
+            "completed_steps": job.metrics.get("completed_steps", 0) if job.metrics else 0,
+            "dag_structure": dag_structure,
+            "steps": steps,
+            "total_cpu_cores": job.cpu_request,
+            "total_memory_gb": job.memory_request,
+            "total_gpu_count": job.gpu_request,
+            "parallel_steps": 0,
+            "failed_steps": [],
+        }
+
+        # Calculate progress
+        if total_steps > 0:
+            response_data["progress_percentage"] = (
+                workflow_details["completed_steps"] / total_steps * 100
+            )
+
+        response_data["workflow_details"] = WorkflowJobDetails(**workflow_details)
+
+    # Add resource usage from metrics
+    if job.metrics:
+        response_data["cpu_usage"] = job.metrics.get("cpu_usage")
+        response_data["memory_usage"] = job.metrics.get("memory_usage")
+        response_data["gpu_usage"] = job.metrics.get("gpu_utilization")
+
+    return JobDetailedResponse(**response_data)
