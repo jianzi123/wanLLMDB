@@ -5,9 +5,13 @@ const baseQuery = fetchBaseQuery({
   baseUrl: '/api/v1',
   prepareHeaders: (headers, { getState }) => {
     // Get token from state
-    const token = (getState() as RootState).auth.tokens?.accessToken
+    const state = getState() as RootState
+    const token = state.auth.tokens?.accessToken
     if (token) {
       headers.set('authorization', `Bearer ${token}`)
+      console.log('API: Adding token to request:', token.substring(0, 20) + '...')
+    } else {
+      console.warn('API: No token found in state')
     }
     return headers
   },

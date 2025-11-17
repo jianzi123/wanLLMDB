@@ -36,6 +36,7 @@ async def get_current_user(
 
     # Check if token is blacklisted (revoked)
     if security.is_token_blacklisted(token):
+        print("DEBUG: get_current_user - Token is blacklisted")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has been revoked",
@@ -44,15 +45,24 @@ async def get_current_user(
 
     payload = security.decode_token(token)
     if payload is None:
+        print("DEBUG: get_current_user - Token decode failed")
         raise credentials_exception
+    
+    print(f"DEBUG: get_current_user - Token payload: {payload}")
 
     username: str = payload.get("sub")
     if username is None:
+        print("DEBUG: get_current_user - No 'sub' in payload")
         raise credentials_exception
+    
+    print(f"DEBUG: get_current_user - Username from token: {username}")
 
     user = db.query(UserModel).filter(UserModel.username == username).first()
     if user is None:
+        print(f"DEBUG: get_current_user - User not found: {username}")
         raise credentials_exception
+    
+    print(f"DEBUG: get_current_user - User found: {user.username}, active: {user.is_active}")
 
     return User.model_validate(user)
 
